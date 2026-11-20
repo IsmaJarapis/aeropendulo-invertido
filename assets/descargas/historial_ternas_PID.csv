@@ -1,0 +1,43 @@
+﻿iteracion;fase;hora_17nov;donde;Kp;Ki;Kd;Kv;Voff;Vmax;filtro_derivativo_ms;periodo_lazo_ms;otro_cambio;centro_aprox_grados;amplitud_aprox_grados;rms_medido_grados;pct_dentro_2_grados;se_cayo;como_se_midio;lectura_y_siguiente_decision
+1;B: PWM invertido corregido, curva de empuje del informe;11:34;VI;2,23;0;0,8;-;0,5;5;~40;10,5;PWM invertido ON;3;2,5;;;no;grafica del VI;Se sostiene con vibracion rapida (~5 Hz). Probar menos Kd para quitar la vibracion
+2;B;11:35;VI;2,23;0;0,5;-;0,5;5;~40;10,5;;;crece;;;si;grafica del VI;Con menos Kd la oscilacion crece: falta amortiguamiento. Volver a subir Kd
+3;B;11:36;VI;2,23;0;1,0;-;0,5;5;~40;10,5;;-7;15;;;no;grafica del VI;Oscila grande y u satura en cada vaiven. Kd 0.8 era mejor
+4;B;11:37;VI;2,23;0;0,8;-;0,3;5;~40;10,5;Voff 0.3;8;6;;;no;grafica del VI;Se sostiene pero recostada (+5 a +12): falta fuerza contra la gravedad. Subir Kp
+5;B;11:37;VI;3,5;0;0,8;-;0,3;5;~40;10,5;;2,3;3,3;;;no;grafica del VI;Mejor de la fase B (-1 a +5.5). Probar integral para centrar
+6;B;11:38;VI;3,5;0,2;0,8;-;0,3;5;~40;10,5;;;crece;;;si;grafica del VI;La integral agrega retardo y desestabiliza. Ki vuelve a 0
+7;B;11:39;VI;3,5;0;0,8;-;0,3;5;~40;10,5;arranque en frio;-8;20;;;no;grafica del VI;Desde cero no repite: +-15 a 25 con u saturado. Subir Kd
+8;B;11:39;VI;3,5;0;1,2;-;0,3;5;~40;10,5;;0;10;;;no;grafica del VI;Kd 1.2 reduce de +-20 a +-10. Probar mas Kd
+9;B;11:39;VI;3,5;0;1,6;-;0,3;5;~40;10,5;;;25;;;si;grafica del VI;Demasiado Kd: sobrecorrige y cae. Kd optimo cerca de 1.2
+10;B;11:43;VI;3,5;0;1,2;-;0,2;5;~40;10,5;Voff 0.2;0;6;;;si;grafica del VI;Sostiene unos segundos (-5 a +6) y luego cae. Se sospecha del actuador: medir los motores
+11;C: actuador lineal V=Voff+Kv|u| (Kv conectado por error a la constante 2);12:01;VI;3,5;0;1,2;2 (efectivo);0,2;5;~40;10,5;actuador lineal;0;crece lento;;;si;grafica del VI;Al inicio se asienta suave en 0 (primera vez). Luego oscilacion lenta creciente. Subir Kd
+12;C;12:03;VI;3,5;0;1,8;2 (efectivo);0,2;5;~40;10,5;;7;9;;;no;grafica del VI;Mas rapido pero u satura. Se nota que Kv no responde: error de cableado detectado y corregido
+13;D: Kv bien conectado;12:10;VI;3,5;0;1,2;2;0,2;5;~40;10,5;;-25;15;;;no;grafica del VI;Oscilacion grande y recostada a la izquierda. Bajar ganancias
+14;D;12:12;VI;2,5;0;1,0;2;0,2;5;~40;10,5;;-32;12;;;no;grafica del VI;Queda del lado izquierdo con el motor al tope: falta potencia maxima. Subir Kv y bajar Kp/Kd en proporcion
+15;D;12:12;VI;1,5;0;0,6;3,5;0,2;5;~40;10,5;;-37;17;;;no;grafica del VI;Sigue recostada: nada mantiene el empuje contra la gravedad. Agregar integral
+16;D;12:12;VI;1,5;0,4;0,6;3,5;0,2;5;~40;10,5;Ki 0.4;-10;15;;;no;grafica del VI;La integral empieza a centrar la varilla. Subir Kd para frenar
+17;D;12:13;VI;1,5;0,4;0,9;3,5;0,2;5;~40;10,5;;0;6;;;no;grafica del VI;Mejor hasta el momento en el VI: +-6 centrada. Probar mas Kd
+18;D;12:14;VI;1,5;0,4;1,2;3,5;0,2;5;~40;10,5;;16;11;;;no;grafica del VI;Mucho freno: lenta y se va a un lado. Kd vuelve a 0.9
+19;D;12:14;VI;1,5;0,4;0,9;3,5;0,2;5;~40;10,5;;0;17;;;no;grafica del VI;Deriva lenta de lado a lado: Kp algo debil. Subir Kp
+20;D;12:15;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;Kp 2;0;7;;;no;grafica del VI;Sin deriva, centrada, +-7. Probar Kd 1.05
+21;D;12:15;VI;2,0;0,4;1,05;3,5;0,2;5;~40;10,5;;2;9;;;no;grafica del VI;Peor. El punto dulce es Kd 0.9
+22;D;12:16;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;;-1;6;;;no;grafica del VI;Mejor ajuste del VI antes del cambio de filtro (+-6). Se guarda como respaldo
+23;E: ideas de codigo sobre la terna 22;12:17;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;arranque en frio;-18;8;;;no;grafica del VI;Desde cero no repite los +-6 (depende de que la integral se llene)
+24;E;12:18;VI;2,0;0,4;0,9;3,5;0;5;~40;10,5;Voff 0;0;7,5;;;no;grafica del VI;Voff no cambia el resultado
+25;E;12:18;VI;2,0;0,4;0,9;3;0;5;~40;10,5;Kv 3;-3;7,5;;;no;grafica del VI;Kv 3 igual: se llega a una meseta de +-7
+26;E;12:22;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;integral siempre activo con recorte +-0.5;0;22;;;no;grafica del VI;Peor (+-15 a 30). Se revierte
+27;E;12:23;VI;2,0;0,15;0,9;3,5;0,2;5;~40;10,5;integral con recorte;-30;12;;;no;grafica del VI;Con menos Ki se recuesta. Se revierte este anti-windup
+28;E;12:27;VI;2,0;0,2;0,9;3,5;0,2;5;~40;10,5;motores en reposo Vr 0.8;0;17;;;no;grafica del VI;Los dos motores girando suave no ayudan
+29;E;12:30;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;base de nuevo;30;15;;;no;grafica del VI;Confirma alta variabilidad entre corridas. Se decide medir la planta (ensayos de escalon)
+30;E;12:38;VI;2,0;0,4;0,9;8;0,2;1,2;~40;10,5;Vmax 1.2 (rango util del motor);35;15;;;no;grafica del VI;Sin potencia no recupera desde 30 grados o mas
+31;E;12:46;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;limite segun angulo Vc 0.5;0;17;;;no;grafica del VI;Menos fuerza cerca de 0 deja que se aleje mas. Peor
+32;E;12:47;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;limite segun angulo Vc 1.5;0;16;;;no;grafica del VI;Igual. Se desactiva
+33;E;12:53;VI;2,0;0,4;0,9;3,5;0,2;5;~40;10,5;pulsos (PWM por software) Vp 1;0;20;;;no;grafica del VI;No ayuda. Se decide sacar el control a un programa rapido con registro
+34;F: control externo 2 ms con registro;12:56;externo;2,0;0,4;0,9;3,5;0,2;5;20;2;mismas ganancias, lazo 5 veces mas rapido;;;2,74;37;no;registro .csv;Solo con lazo rapido ya mejora (rms 2.74). El registro muestra que el derivativo domina: probar mas Kp y menos Kd
+35;F;12:57;externo;3,0;0,4;0,6;3,5;0,2;5;20;2;;;;5,11;20;no;registro .csv;Peor: menos Kd perjudica. Volver a Kp 2 Kd 0.9 y bajar Kv
+36;F;12:58;externo;2,0;0,4;0,9;1,0;0,2;5;20;2;;;;2,61;51;no;registro .csv;Bajar Kv ayuda (empujes proporcionales)
+37;F;12:59;externo;2,0;0,4;0,9;0,6;0,2;5;20;2;;;;2,43;51;no;registro .csv;Sigue mejorando. Probar Kv 0.35
+38;F;13:00;externo;2,0;0,4;0,9;0,35;0,2;5;20;2;;;;2,78;48;no;registro .csv;Demasiado suave. Kv optimo cerca de 0.6
+39;F;13:00;externo;2,0;0,4;1,2;0,6;0,2;5;20;2;;;;2,55;52;no;registro .csv;Kd no cambia mucho: meseta. Atacar el retardo del filtro del derivativo
+40;F;13:01;externo;2,0;0,4;0,9;0,6;0,2;5;10;2;filtro del derivativo 10 ms;;;1,44;85;no;registro .csv;Salto grande: el retardo era la causa raiz. Bajar a 5 ms
+41;F;13:02;externo;2,0;0,4;0,9;0,6;0,2;5;5;2;filtro del derivativo 5 ms;;;0,88;99;no;registro .csv;CUMPLE EL OBJETIVO: 99 % dentro de +-2 grados. Pasar al VI
+42;G: VI final;13:07;VI;2,0;0,4;0,9;0,6;0,2;5;5;6,6;filtro 5 ms y Wait 1 ms en el VI;0;2,5;;;no;grafica del VI;+-2 a 3 al arrancar y luego dentro de +-2 grados (cifra exacta pendiente de medir con registro)

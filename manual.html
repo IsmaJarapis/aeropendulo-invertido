@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Aeropéndulo invertido · Jarapis Lab</title>
+<meta name="description" content="Manual de usuario del aeropéndulo invertido de dos motores: seguridad, conexiones, encoder, PWM, LabVIEW, calibración, operación y gemelo digital.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+<style>
+
+  :root{
+    --ink:#16181d;
+    --ink-soft:#3a3f48;
+    --ink-faint:#6b7280;
+    --line:#e3e6ea;
+    --line-soft:#eef0f3;
+    --paper:#ffffff;
+    --dark:#0a0b0d;
+    --dark-2:#121419;
+    --dark-3:#1b1e25;
+    --red:#E2231A;
+    --red-deep:#b8160f;
+    --blue:#1f6bff;
+    --blue-deep:#1450c8;
+    --amber:#f59e0b;
+    --green:#1f9d57;
+    --pad-x:58px;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#5b6068;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+
+  /* ---------- SHEET / PAGE SYSTEM ---------- */
+  .doc{ }
+  .sheet{
+    width:820px; max-width:calc(100% - 24px);
+    margin:26px auto;
+    background:var(--paper);
+    padding:64px var(--pad-x) 78px;
+    box-shadow:0 18px 50px rgba(0,0,0,.4);
+    position:relative;
+    counter-increment:pagenum;
+  }
+  .sheet.cover{ padding:0; background:var(--dark); overflow:hidden; }
+  .sheet.dark{ background:var(--dark); color:#fff; }
+
+  /* running footer */
+  .sheet:not(.cover)::after{
+    content:"Aeropéndulo invertido  ·  Jarapis Lab";
+    position:absolute;
+    left:var(--pad-x); right:var(--pad-x); bottom:30px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--ink-faint);
+    border-top:1px solid var(--line);
+    padding-top:9px;
+    display:flex; justify-content:space-between;
+  }
+  .sheet.dark::after{ color:#7b818c; border-top-color:#262a31; }
+  .sheet:not(.cover)::after{ content:"Aeropéndulo invertido  ·  Jarapis Lab"; }
+  .pgnum{ position:absolute; right:var(--pad-x); bottom:30px;
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.12em; color:var(--ink-faint); z-index:2;}
+  .sheet.dark .pgnum{ color:#7b818c; }
+
+  /* ---------- COVER ---------- */
+  .cover img{ display:block; width:100%; height:auto; }
+
+  /* ---------- TYPE ---------- */
+  h1,h2,h3,h4{ margin:0; font-weight:700; line-height:1.08; }
+  .display{ font-family:'Bebas Neue',sans-serif; font-weight:400; letter-spacing:.01em; line-height:.92; }
+
+  .sec-head{ margin-bottom:30px; }
+  .sec-kicker{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;
+    letter-spacing:.28em; text-transform:uppercase; color:var(--red);
+    display:flex; align-items:center; gap:11px; margin-bottom:13px;
+  }
+  .sec-kicker::before{ content:""; width:26px; height:2px; background:var(--red); display:inline-block; }
+  .sec-num{
+    font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:.05em;
+    color:#fff; background:var(--ink); padding:1px 9px 0; border-radius:3px;
+  }
+  .sec-title{ font-family:'Bebas Neue',sans-serif; font-weight:400; font-size:50px;
+    letter-spacing:.012em; line-height:.95; color:var(--ink); }
+  .sec-title.tight{ font-size:44px; }
+  .sec-rule{ height:3px; background:linear-gradient(90deg,var(--red) 0 64px,var(--line) 64px); margin-top:16px; }
+
+  h3.sub{ font-family:'Inter',sans-serif; font-weight:700; font-size:18px; color:var(--ink);
+    margin:30px 0 12px; letter-spacing:-.01em; display:flex; align-items:baseline; gap:10px;}
+  h3.sub .dot{ width:7px; height:7px; background:var(--red); border-radius:50%; transform:translateY(-2px); }
+  h4.sub2{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:12px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--blue); margin:22px 0 9px; }
+
+  p{ margin:0 0 13px; font-size:14.5px; color:var(--ink-soft); }
+  p.lead{ font-size:16.5px; color:var(--ink); line-height:1.55; margin-bottom:18px; font-weight:400; }
+  strong{ color:var(--ink); font-weight:600; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  .accent{ color:var(--red); font-weight:600; }
+  .accent-b{ color:var(--blue-deep); font-weight:600; }
+
+  ul.clean{ margin:4px 0 14px; padding:0; list-style:none; }
+  ul.clean li{ font-size:14.5px; color:var(--ink-soft); padding:5px 0 5px 22px; position:relative; }
+  ul.clean li::before{ content:""; position:absolute; left:2px; top:13px; width:7px; height:7px;
+    background:var(--blue); border-radius:1px; }
+
+  /* ---------- TABLES ---------- */
+  table.tbl{ width:100%; border-collapse:collapse; margin:8px 0 18px; font-size:13.5px; }
+  table.tbl thead th{
+    background:var(--ink); color:#fff; text-align:left; padding:9px 13px;
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600;
+    letter-spacing:.1em; text-transform:uppercase;
+  }
+  table.tbl td{ padding:8px 13px; border-bottom:1px solid var(--line); color:var(--ink-soft); }
+  table.tbl td:first-child{ color:var(--ink); font-weight:500; }
+  table.tbl tbody tr:nth-child(even){ background:#fafbfc; }
+  table.tbl td.num{ font-family:'JetBrains Mono',monospace; color:var(--ink); }
+  table.tbl.center td, table.tbl.center th{ text-align:center; }
+  table.tbl.center td:first-child{ text-align:center; }
+
+  .tbl-cap{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-faint); margin:0 0 7px; }
+
+  /* ---------- CALLOUTS ---------- */
+  .note{ border-left:3px solid var(--blue); background:#f3f7ff; padding:13px 17px; margin:16px 0;
+    font-size:13.5px; color:var(--ink-soft); break-inside:avoid; border-radius:0 5px 5px 0; }
+  .note .lbl{ display:block; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--blue-deep); margin-bottom:5px; }
+  .warn{ border-left:3px solid var(--red); background:#fff3f2; padding:13px 17px; margin:16px 0;
+    font-size:13.5px; color:var(--ink-soft); break-inside:avoid; border-radius:0 5px 5px 0; }
+  .warn .lbl{ display:block; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--red-deep); margin-bottom:5px; }
+  .tip{ border-left:3px solid var(--green); background:#f1faf4; padding:13px 17px; margin:16px 0;
+    font-size:13.5px; color:var(--ink-soft); break-inside:avoid; border-radius:0 5px 5px 0; }
+  .tip .lbl{ display:block; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600;
+    letter-spacing:.14em; text-transform:uppercase; color:#147a42; margin-bottom:5px; }
+
+  /* ---------- FORMULA ---------- */
+  .formula{ background:var(--dark); color:#fff; border-radius:8px; padding:20px 24px; margin:16px 0;
+    font-family:'JetBrains Mono',monospace; break-inside:avoid; position:relative; overflow:hidden;}
+  .formula::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--red); }
+  .formula .eq{ font-size:19px; font-weight:600; letter-spacing:.01em; color:#fff; }
+  .formula .eq .v{ color:#ff7a72; }
+  .formula .eq .b{ color:#7db0ff; }
+  .formula .cap{ font-family:'Inter',sans-serif; font-size:11.5px; color:#9aa0ab; margin-top:9px; letter-spacing:.02em;}
+
+  /* ---------- SPEC GRID ---------- */
+  .specgrid{ display:grid; grid-template-columns:1fr 1fr; gap:11px; margin:16px 0; }
+  .spec{ border:1px solid var(--line); border-radius:7px; padding:12px 14px; break-inside:avoid; }
+  .spec .k{ font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
+  .spec .v{ font-size:17px; font-weight:700; color:var(--ink); font-family:'Oswald',sans-serif; }
+  .spec .v small{ font-size:11px; font-weight:500; color:var(--ink-faint); font-family:'Inter'; }
+
+  /* ---------- CHECKLIST ---------- */
+  .checklist{ margin:14px 0; padding:0; list-style:none; }
+  .checklist li{ display:flex; align-items:flex-start; gap:12px; padding:8px 0; border-bottom:1px dashed var(--line);
+    font-size:14px; color:var(--ink-soft); }
+  .checklist .box{ width:17px; height:17px; border:2px solid var(--ink); border-radius:3px; flex:none; margin-top:2px; }
+
+  /* ---------- STEPS ---------- */
+  ol.steps{ margin:14px 0; padding:0; list-style:none; counter-reset:st; }
+  ol.steps li{ counter-increment:st; position:relative; padding:9px 0 9px 48px; border-bottom:1px solid var(--line-soft);
+    font-size:14.5px; color:var(--ink-soft); break-inside:avoid; }
+  ol.steps li::before{ content:counter(st,decimal-leading-zero); position:absolute; left:0; top:8px;
+    font-family:'Bebas Neue',sans-serif; font-size:21px; color:var(--red); width:34px; text-align:left; letter-spacing:.04em;}
+  ol.steps li strong{ display:block; color:var(--ink); font-weight:600; margin-bottom:1px; font-size:14.5px;}
+
+  /* ---------- FLOW / BLOCK DIAGRAMS ---------- */
+  .flow{ display:flex; flex-direction:column; gap:0; margin:16px 0; }
+  .fbox{ background:#fff; border:1.5px solid var(--ink); border-radius:7px; padding:11px 15px;
+    font-size:13px; color:var(--ink); font-weight:500; text-align:center; position:relative; }
+  .fbox .t{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-faint); display:block; margin-bottom:2px; }
+  .fbox.pid{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .fbox.pid .t{ color:#9aa0ab; }
+  .fbox.sat{ border-color:var(--red); color:var(--red-deep); }
+  .fbox.plant{ border-color:var(--blue); color:var(--blue-deep); }
+  .fbox.sensor{ background:#f3f7ff; border-color:var(--blue); }
+  .farrow{ height:20px; display:flex; align-items:center; justify-content:center; color:var(--ink-faint); }
+  .farrow svg{ display:block; }
+  .fb-note{ font-size:11.5px; color:var(--ink-faint); font-style:italic; margin-top:9px; text-align:center; }
+
+  .flow.two{ display:grid; grid-template-columns:1fr 1fr; gap:0 28px; align-items:start; }
+  .flow.two .col-head{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; text-align:center; padding:7px; border-radius:5px; margin-bottom:6px; font-weight:600;}
+  .flow.two .ch-pitch{ background:#fff3f2; color:var(--red-deep); }
+  .flow.two .ch-yaw{ background:#f3f7ff; color:var(--blue-deep); }
+  .coupling{ grid-column:1/3; margin-top:6px; }
+
+  /* ---------- PHOTO SLOT ---------- */
+  .photo{ border:2px dashed #c2c7cf; border-radius:9px; background:repeating-linear-gradient(135deg,#fafbfc 0 14px,#f4f6f8 14px 28px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    color:var(--ink-faint); break-inside:avoid; position:relative; padding:20px; }
+  .photo .cam{ width:34px; height:34px; opacity:.5; margin-bottom:9px; }
+  .photo .ptxt{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#8a909a; }
+  .photo .pno{ position:absolute; top:10px; left:12px; font-family:'Bebas Neue'; font-size:20px; color:#c2c7cf; }
+  .photo .plabel{ position:absolute; top:10px; right:12px; font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:.1em; background:var(--ink); color:#fff; padding:3px 8px; border-radius:3px; }
+  .photo-cap{ font-size:11.5px; color:var(--ink-faint); margin:6px 0 18px; text-align:center; font-style:italic;}
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+
+  /* ---------- FIGURES (real photos) ---------- */
+  .fig{ margin:16px 0 6px; break-inside:avoid; }
+  .fig-img{ position:relative; border-radius:9px; overflow:hidden; background:var(--dark);
+    border:1px solid #d3d8dd; box-shadow:0 8px 22px rgba(10,11,13,.18); }
+  .fig-img img{ display:block; width:100%; height:100%; object-fit:cover; }
+  .fig.hero .fig-img{ height:312px; }
+  .fig-no{ position:absolute; top:0; left:0; background:var(--red); color:#fff;
+    font-family:'Bebas Neue',sans-serif; font-size:19px; line-height:1; padding:8px 12px 5px; letter-spacing:.05em; z-index:3;}
+  .fig-tag{ position:absolute; bottom:10px; left:10px; background:rgba(10,11,13,.8); color:#fff;
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.13em; text-transform:uppercase;
+    padding:5px 9px; border-radius:3px; z-index:3; }
+  figcaption{ font-size:11.5px; color:var(--ink-faint); margin-top:7px; font-style:italic; }
+  .fig-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .fig-grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:11px; }
+  .fig-grid2 .fig-img{ height:215px; }
+  .fig-grid3 .fig-img{ height:182px; }
+  .fig-grid2 .fig-img.tall{ height:250px; }
+  /* photo annotations: numbered markers + legend */
+  .annot{ position:absolute; width:21px; height:21px; border-radius:50%; background:var(--red); color:#fff;
+    font-family:'Bebas Neue',sans-serif; font-size:13px; display:flex; align-items:center; justify-content:center;
+    border:2px solid #fff; box-shadow:0 2px 7px rgba(0,0,0,.55); transform:translate(-50%,-50%); z-index:4; padding-top:1px;}
+  .annot::after{ content:""; position:absolute; width:7px; height:7px; border-radius:50%; background:rgba(226,35,26,.35);
+    left:50%; top:50%; transform:translate(-50%,-50%) scale(2.4); z-index:-1; }
+  .legend{ display:flex; flex-wrap:wrap; gap:7px 18px; margin-top:11px; }
+  .legend span{ font-size:12px; color:var(--ink-soft); display:flex; align-items:center; gap:7px; }
+  .legend b{ background:var(--red); color:#fff; width:17px; height:17px; border-radius:50%;
+    font-family:'Bebas Neue',sans-serif; font-size:12px; display:inline-flex; align-items:center; justify-content:center;
+    font-weight:400; flex:none; padding-top:1px;}
+
+  /* ---------- SIMULATOR MOCKS ---------- */
+  .sim-card{ background:var(--dark); border-radius:9px; padding:16px 18px; color:#fff; break-inside:avoid; }
+  .sim-card .sc-h{ font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--red); margin-bottom:13px; display:flex; align-items:center; gap:8px; }
+  .sim-card .sc-h::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--red); }
+  .slider-row{ margin-bottom:11px; }
+  .slider-row .sl-top{ display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10px; margin-bottom:5px; }
+  .slider-row .sl-top .k{ color:#9aa0ab; letter-spacing:.04em; } .slider-row .sl-top .v{ color:#fff; font-weight:600; }
+  .track{ height:3px; background:#2a2e36; border-radius:2px; position:relative; }
+  .track i{ position:absolute; top:50%; width:11px; height:11px; background:var(--red); border-radius:2px; transform:translate(-50%,-50%); }
+  .sim-pill{ display:inline-flex; gap:7px; }
+  .sim-pill b{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.12em; padding:5px 10px; border-radius:3px;
+    background:#15171c; border:1px solid #262a31; color:#9aa0ab; font-weight:500; }
+  .sim-pill b.on{ border-color:var(--red); color:var(--red); }
+  .miniplot{ background:#08090b; border:1px solid #20242b; border-radius:8px; padding:10px 12px; }
+  .miniplot .mp-t{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:#9aa0ab; margin-bottom:6px; display:flex; justify-content:space-between;}
+  .miniplot .mp-t b{ font-weight:600; }
+  .mp-good b{ color:var(--green); } .mp-bad b{ color:var(--amber); }
+
+  /* ---------- COMPONENT CARD ---------- */
+  .comp{ display:grid; grid-template-columns:42px 1fr; gap:14px; padding:13px 0; border-bottom:1px solid var(--line); break-inside:avoid;}
+  .comp .cn{ font-family:'Bebas Neue',sans-serif; font-size:30px; color:#fff; background:var(--ink);
+    width:42px; height:42px; display:flex; align-items:center; justify-content:center; border-radius:7px; letter-spacing:.03em;}
+  .comp h4{ font-size:15.5px; color:var(--ink); margin-bottom:3px; font-weight:700; }
+  .comp .tag{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--blue-deep); margin-left:8px; }
+  .comp p{ margin:0; font-size:13.5px; }
+
+  .break{ break-before:page; }
+  .avoid{ break-inside:avoid; }
+
+  /* ---------- SCREEN-ONLY TOOLBAR ---------- */
+  @media screen{
+    .printbar{ position:fixed; top:16px; right:16px; z-index:50; }
+    .printbar button{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+      background:var(--ink); color:#fff; border:none; padding:11px 16px; border-radius:6px; cursor:pointer; font-weight:600;
+      box-shadow:0 6px 18px rgba(0,0,0,.3); }
+    .printbar button:hover{ background:var(--red); }
+  }
+
+  /* ---------- PRINT ---------- */
+  @page{ size:A4; margin:0; }
+  @media print{
+    html,body{ background:#fff;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .printbar{ display:none; }
+    .sheet{
+      width:100%; margin:0; box-shadow:none;
+      padding:50px 52px 56px; box-sizing:border-box;
+      break-before:page; break-inside:auto;
+    }
+    .sheet:first-child{ break-before:auto; }
+    .sheet.dark{ background:var(--dark); padding:50px 52px 56px; }
+    .sheet.cover{
+      padding:0; height:100vh; display:flex; align-items:center;
+      justify-content:center; background:#0a0b0d; overflow:hidden; break-before:auto;
+    }
+    .cover img{ width:100%; height:100%; object-fit:contain; }
+    /* don't force breaks mid-section — avoids stray blank pages */
+    .break{ break-before:auto; }
+    .fig, .fig-img, figure, .miniplot, .sim-card, table.tbl,
+    .note, .warn, .tip, .formula, .comp, ol.steps li, .checklist li{ break-inside:avoid; }
+    .sheet:not(.cover)::after{ position:absolute; left:52px; right:52px; bottom:22px; }
+    .pgnum{ display:none; }
+  }
+
+  /* ---------- AEROPÉNDULO INVERTIDO: añadidos ---------- */
+  .verify{ font-family:'JetBrains Mono',monospace; font-size:.82em; font-weight:600; color:#8a5a00; background:#fff4d6;
+    border:1px solid #f5c451; padding:0 5px; border-radius:3px; white-space:nowrap; }
+  .sheet.cover{ background:radial-gradient(ellipse at 70% 60%, #1a2230 0%, #0a0b0d 60%); color:#fff; }
+  .cover-in{ padding:60px var(--pad-x) 50px; min-height:1100px; position:relative; display:flex; flex-direction:column; }
+  .cover-img{ width:78%; align-self:flex-end; margin-top:auto; filter:drop-shadow(0 26px 40px rgba(0,0,0,.6)); }
+  .cover-foot{ border-top:1px solid #262a31; padding-top:16px; margin-top:24px; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.08em; color:#9aa0ab; line-height:1.9; }
+  .fig-img.light{ background:#e9ecef; }
+  .photo .ppath{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#a0a6af; margin-top:5px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:13px; }
+  .idcard{ border:1px solid #262a31; border-radius:9px; padding:18px; }
+  .idcard .n{ font-family:'Bebas Neue'; font-size:38px; line-height:1; }
+  .idcard b{ display:block; font-weight:700; margin:8px 0 4px; font-size:15px; color:#fff; }
+  .idcard span{ color:#9aa0ab; font-size:12.5px; line-height:1.5; }
+  .mode{ border:1.5px solid var(--ink); border-radius:9px; padding:16px; }
+  .mode.on{ border-style:dashed; border-color:var(--blue); background:#f8fbff; }
+  .mode .m{ font-family:'Bebas Neue'; font-size:26px; color:var(--red); line-height:1; }
+  .mode b{ display:block; font-size:14px; margin:6px 0; color:var(--ink); }
+  .mode p{ font-size:12.5px; margin:0; }
+  .wiring{ width:100%; height:auto; display:block; margin:6px 0 10px; border:1px solid var(--line); border-radius:8px; background:#fcfcfd; }
+  table.tbl.parts td.num{ text-align:center; font-weight:700; color:var(--red); }
+  .fig-img.light.tall{ height:260px; }
+  .gloss{ display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; font-size:12.5px; color:var(--ink-soft); }
+  .gloss b{ color:var(--ink); margin-right:4px; }
+  .sec-kicker .sec-num{ margin-right:2px; }
+  .printbar{ display:flex; gap:8px; }
+  .printbar a{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; background:#fff; color:var(--ink);
+    padding:11px 14px; border-radius:6px; text-decoration:none; font-weight:600; box-shadow:0 6px 18px rgba(0,0,0,.3); }
+  table.tbl{ display:table; }
+  @media (max-width:760px){
+    :root{ --pad-x:20px; }
+    .sheet{ padding:40px var(--pad-x) 70px; margin:12px auto; }
+    .sec-title{ font-size:38px; } .sec-title.tight{ font-size:34px; }
+    .specgrid, .fig-grid2, .fig-grid3, .two-col, .grid3, .gloss, .flow.two{ grid-template-columns:1fr !important; }
+    .cover-in{ min-height:auto; } .cover-in h1{ font-size:62px !important; } .cover-img{ width:100%; }
+    table.tbl{ display:block; overflow-x:auto; font-size:12.5px; }
+    .printbar{ position:static !important; justify-content:flex-end; padding:10px 12px 0; }
+  }
+  @media print{ .verify{ background:#fff4d6 !important; } .sheet{ max-width:none; } .cover-in{ min-height:96vh; } }
+</style>
+</head>
+<body>
+<div class="printbar"><a href="index.html">← Sitio</a><button onclick="window.print()">Imprimir / guardar PDF</button></div>
+<div class="doc">
+
+<!-- ============ PORTADA ============ -->
+<section class="sheet cover" data-screen-label="Portada">
+  <div class="cover-in">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <svg width="46" height="46" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect x="1.5" y="1.5" width="61" height="61" rx="12" fill="#050505" stroke="#8C8C8C" stroke-width="1.5"/>
+        <line x1="32" y1="52" x2="32" y2="17" stroke="#F3F3F3" stroke-width="2.6" stroke-linecap="round"/>
+        <rect x="25" y="50" width="14" height="6" rx="1" fill="#F3F3F3"/>
+        <circle cx="32" cy="50" r="3.6" fill="#E2231A" stroke="#D8D8D8" stroke-width="1.2"/>
+        <path d="M21 17H43" stroke="#E2231A" stroke-width="3" stroke-linecap="round"/>
+        <ellipse cx="17" cy="17" rx="2.2" ry="8" fill="#E2231A"/><ellipse cx="47" cy="17" rx="2.2" ry="8" fill="#E2231A"/>
+      </svg>
+      <div>
+        <div style="font-family:'Bebas Neue'; font-size:26px; letter-spacing:.05em; line-height:1;">JARAPIS LAB</div>
+        <div class="mono" style="font-size:9.5px; letter-spacing:.22em; color:#7db0ff;">PLANTAS · SIMULACIÓN · GEMELOS DIGITALES</div>
+      </div>
+    </div>
+    <div class="mono" style="font-size:11px; letter-spacing:.3em; color:#E2231A; margin-top:70px;">MANUAL DE USUARIO · v1.0</div>
+    <h1 class="display" style="font-size:96px; margin-top:12px; color:#fff;">AEROPÉNDULO<br><span style="color:#E2231A;">INVERTIDO</span></h1>
+     <p style="color:#c4c9d2; font-size:16px; max-width:46ch; margin-top:16px;">Planta de dos hélices (un motor encendido a la vez), encoder óptico de 2000 P/R, adquisición NI USB-6212 y control I-PD en LabVIEW.</p>
+    <img src="assets/render/hero_ensamblaje.png" alt="Modelo CAD del aeropéndulo invertido" class="cover-img">
+    <div class="cover-foot">
+      <div>Ismael Jaramillo Marulanda · Samuel Bermudez Echeverri · Daniel Correa Osorio</div>
+      <div>Proyecto Instrumental 1 · Ingeniería Física · Universidad EAFIT · 2026-2</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PROPÓSITO ============ -->
+<section class="sheet" data-screen-label="Propósito">
+  <span class="pgnum">02</span>
+  <div class="sec-head">
+    <div class="sec-kicker">Jarapis Lab · Documentación</div>
+    <h1 class="sec-title">Propósito del manual</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">Esta guía acompaña al usuario en la operación del <strong>aeropéndulo invertido</strong>: reconocer sus componentes, conectar la DAQ, verificar el encoder, energizar la etapa PWM, ejecutar el control en LabVIEW, realizar pruebas de estabilización y apagar el sistema de forma segura.</p>
+  <p>Está pensada para que una persona con conocimientos básicos de control e instrumentación lleve la planta desde el estado apagado hasta una práctica en lazo cerrado, repita cada paso con seguridad y compare la respuesta real con la del gemelo digital.</p>
+
+  <h3 class="sub"><span class="dot"></span>Público objetivo</h3>
+  <ul class="clean">
+    <li>Estudiantes de control automático e instrumentación.</li>
+    <li>Usuarios de laboratorio que operan la planta en prácticas.</li>
+    <li>Profesores y monitores que guían sesiones experimentales.</li>
+  </ul>
+
+  <h3 class="sub"><span class="dot"></span>Qué aprenderá a hacer</h3>
+  <div class="specgrid">
+    <div class="spec"><div class="k">Reconocer</div><div class="v">Componentes</div></div>
+    <div class="spec"><div class="k">Conectar</div><div class="v">DAQ + encoder + PWM</div></div>
+    <div class="spec"><div class="k">Operar</div><div class="v">VI de LabVIEW</div></div>
+    <div class="spec"><div class="k">Validar</div><div class="v">±2° en la vertical</div></div>
+  </div>
+
+  <div class="note">
+    <span class="lbl">Cómo leer este manual</span>
+    Las secciones siguen el orden real de operación. La primera vez, recórralo completo. En sesiones rutinarias use la <strong>lista de chequeo</strong> y el <strong>encendido paso a paso</strong> (§11).
+  </div>
+  <div class="warn">
+    <span class="lbl">Marcas <span class="verify">[VERIFICAR]</span></span>
+    Quedan marcados así solo los colores de los cables del encoder y su alimentación, que dependen de la etiqueta del cable. Los terminales de la DAQ, la sierra y las escalas ya se verificaron en el laboratorio.
+  </div>
+</section>
+
+<!-- ============ IDENTIDAD ============ -->
+<section class="sheet dark" data-screen-label="Identidad Jarapis">
+  <span class="pgnum">03</span>
+  <div class="mono" style="font-size:10px; letter-spacing:.22em; color:#7db0ff; margin-bottom:28px;">JARAPIS LAB · PLANTAS · SIMULACIÓN · GEMELOS DIGITALES</div>
+  <h2 class="display" style="font-size:62px; max-width:12ch; color:#fff;">Control que se puede tocar.</h2>
+  <p style="color:#c4c9d2; font-size:16px; max-width:54ch; margin-top:18px;">Jarapis Lab desarrolla plantas físicas de laboratorio, modelos de simulación y gemelos digitales para aprender control clásico, adquisición de datos, PWM, identificación y validación experimental.</p>
+  <div class="grid3" style="margin-top:40px;">
+    <div class="idcard"><div class="n" style="color:#E2231A;">01</div><b>Planta física</b><span>Varilla invertida con dos hélices para experimentar control en el banco.</span></div>
+    <div class="idcard"><div class="n" style="color:#fff;">02</div><b>Simulación</b><span>Modelo no lineal para diseñar y predecir antes de tocar la planta.</span></div>
+    <div class="idcard"><div class="n" style="color:#7db0ff;">03</div><b>Gemelo digital</b><span>Comparación directa entre la respuesta real y la simulada.</span></div>
+  </div>
+  <p style="color:#7b818c; font-size:12px; margin-top:40px; font-family:'JetBrains Mono'; letter-spacing:.04em;">El aeropéndulo invertido continúa el AERO-COPTER del semestre anterior: ahora la varilla se controla en su equilibrio inestable.</p>
+</section>
+
+<!-- ============ FICHA RÁPIDA ============ -->
+<section class="sheet" data-screen-label="Ficha rápida">
+  <span class="pgnum">04</span>
+  <div class="sec-head">
+    <div class="sec-kicker">Vista general</div>
+    <h1 class="sec-title">Ficha rápida del sistema</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">Una varilla de 250 mm pivota sobre el eje de un encoder óptico montado detrás del mástil. En su extremo superior, un soporte sostiene dos motores con hélice que soplan en sentidos opuestos. Se enciende uno a la vez, y su empuje produce el torque que mantiene la varilla en la <strong>vertical</strong>, su punto de equilibrio inestable.</p>
+
+  <h3 class="sub"><span class="dot"></span>Naturaleza del sistema</h3>
+  <ul class="clean">
+     <li><strong>SISO:</strong> una entrada (u del I-PD: voltaje en ao0 y motor elegido) y una salida (ángulo θ).</li>
+    <li><strong>Inestable en lazo abierto:</strong> sin control, la varilla cae en menos de un segundo.</li>
+    <li><strong>Control I-PD</strong> ejecutado en LabVIEW, con un ciclo de unos 6,6 ms.</li>
+  </ul>
+
+  <h3 class="sub"><span class="dot"></span>Parámetros de un vistazo</h3>
+  <div class="specgrid">
+    <div class="spec"><div class="k">Objetivo</div><div class="v">|θ| ≤ 2° <small>en la vertical</small></div></div>
+    <div class="spec"><div class="k">Sensor de ángulo</div><div class="v">E6B2-CWZ3E <small>2000 P/R</small></div></div>
+    <div class="spec"><div class="k">Resolución</div><div class="v">0,045° <small>por cuenta (X4)</small></div></div>
+    <div class="spec"><div class="k">Adquisición</div><div class="v">NI USB-6212</div></div>
+     <div class="spec"><div class="k">Torque por motor</div><div class="v">17–47 mN·m <small>casi todo/nada</small></div></div>
+     <div class="spec"><div class="k">Motores</div><div class="v">uno a la vez <small>line0 / line1</small></div></div>
+    <div class="spec"><div class="k">PWM</div><div class="v">Sierra 0–5 V <small>100 Hz</small></div></div>
+    <div class="spec"><div class="k">Software</div><div class="v">LabVIEW 2020 / 2021</div></div>
+  </div>
+  <div class="warn">
+    <span class="lbl">Posición de reposo</span>
+    Con los motores apagados la varilla <strong>no</strong> se sostiene: cae hacia un lado hasta el tope. La vertical (θ = 0) solo se mantiene con el control activo o sujetando la varilla con la mano. Defina el cero del encoder con la varilla sostenida en la vertical (§10).
+  </div>
+</section>
+
+<!-- ============ 01 · RECONOCIMIENTO ============ -->
+<section class="sheet" data-screen-label="Reconocimiento del instrumento">
+  <span class="pgnum">05</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">01</span> Hardware</div>
+    <h1 class="sec-title">Reconocimiento del instrumento</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">La planta se organiza en un <strong>mástil</strong> fijado a la <strong>base con canal de cableado y tapas</strong>, la <strong>varilla</strong> móvil con el soporte de motores en su extremo y la <strong>caja electrónica</strong> con la fuente, el regulador, el comparador y el puente H. El <strong>frente</strong> del equipo es el lado donde se ve la cara del generador de onda: allí quedan el acople y la varilla; el encoder va <strong>detrás</strong> del mástil.</p>
+
+  <figure class="fig">
+    <div class="fig-img light" style="height:330px;"><img src="assets/render/foto_isometrica.jpg" alt="Render del ensamblaje del aeropéndulo invertido con los colores de SolidWorks" style="object-fit:contain;"><span class="fig-no">01</span><span class="fig-tag">Ensamblaje CAD</span></div>
+    <figcaption>Fig. 1 — Render del ensamblaje en SolidWorks.</figcaption>
+  </figure>
+  <figure class="fig">
+    <div class="fig-img light" style="height:auto;"><img src="assets/rotulos/rotulo_isometrica.jpg" alt="Vista isométrica con piezas numeradas" style="height:auto; object-fit:contain;"><span class="fig-no">02</span></div>
+    <figcaption>Fig. 2 — Vista isométrica con la numeración de piezas (ver “Identificación de piezas”).</figcaption>
+  </figure>
+  <figure class="fig">
+    <div class="fig-img light" style="height:auto;"><img src="assets/rotulos/rotulo_frontal.jpg" alt="Vista frontal con piezas numeradas" style="height:auto; object-fit:contain;"><span class="fig-no">03</span></div>
+    <figcaption>Fig. 3 — Vista frontal (lado −Z del CAD) con la numeración de piezas.</figcaption>
+  </figure>
+  <div class="note">
+    <span class="lbl">Ejes y convención</span>
+     El movimiento controlado es el giro de la varilla alrededor del eje del encoder. La <strong>vertical es θ = 0</strong> (se fija al dar Run o con el botón Tarar) y la varilla inclinada a la <strong>derecha</strong>, vista de frente, es ángulo positivo. Cada motor sopla hacia afuera: para mover la varilla a la derecha se enciende el motor <strong>izquierdo</strong> (line1) y viceversa. Con <strong>Invertir sentido</strong> en ON (valor guardado), u &gt; 0 enciende el izquierdo. El VI trabaja en grados y convierte a radianes antes del control.
+  </div>
+</section>
+
+<!-- ============ IDENTIFICACIÓN DE PIEZAS ============ -->
+<section class="sheet" data-screen-label="Identificación de piezas">
+  <span class="pgnum">06</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">01</span> Hardware</div>
+    <h1 class="sec-title">Identificación de piezas</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">La numeración es la misma en todas las figuras rotuladas del manual, del sitio y de la presentación.</p>
+  <table class="tbl parts">
+    <thead><tr><th style="width:48px">N.º</th><th>Pieza</th><th style="width:48px">N.º</th><th>Pieza</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>Mástil</td><td class="num">7</td><td>Motor DC (×2)</td></tr>
+      <tr><td class="num">2</td><td>Base con canal de cableado y tapas</td><td class="num">8</td><td>Hélice (×2)</td></tr>
+      <tr><td class="num">3</td><td>Varilla (250 mm)</td><td class="num">9</td><td>Caja electrónica</td></tr>
+      <tr><td class="num">4</td><td>Acople varilla–encoder</td><td class="num">10</td><td>DAQ NI USB-6212</td></tr>
+      <tr><td class="num">5</td><td>Encoder óptico YUMO E6B2-CWZ3E</td><td class="num">11</td><td>Generador de onda</td></tr>
+      <tr><td class="num">6</td><td>Soporte de motores</td><td class="num"></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="fig-grid2">
+    <figure class="fig"><div class="fig-img light tall"><img src="assets/rotulos/rotulo_superior_varilla.jpg" alt="Detalle del soporte de motores y la varilla" style="object-fit:contain;"><span class="fig-no">04</span></div>
+      <figcaption>Fig. 4 — Detalle superior: varilla (3), soporte de motores (6), motores (7) y hélices (8).</figcaption></figure>
+    <figure class="fig"><div class="fig-img light tall"><img src="assets/rotulos/rotulo_pivote.jpg" alt="Vista posterior del pivote" style="object-fit:contain;"><span class="fig-no">05</span></div>
+      <figcaption>Fig. 5 — Pivote en vista posterior: mástil (1), acople (4) y encoder (5) detrás del mástil.</figcaption></figure>
+  </div>
+  <div class="note">
+    <span class="lbl">Orientación</span>
+    El frente del equipo corresponde a la cara del generador de onda (11). El acople (4) y la varilla (3) quedan al frente del mástil (1); el encoder (5) se monta detrás, como en los planos generales, y su eje atraviesa el mástil hasta el acople.
+  </div>
+</section>
+
+<!-- ============ 02 · COMPONENTES ============ -->
+<section class="sheet" data-screen-label="Componentes principales">
+  <span class="pgnum">07</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">02</span> Hardware</div>
+    <h1 class="sec-title">Componentes principales</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <div class="comp"><div class="cn">1</div><div><h4>Mástil<span class="tag">construido</span></h4><p>Columna negra fijada a la base. Sostiene el encoder por detrás y define el eje de giro de la varilla.</p></div></div>
+  <div class="comp"><div class="cn">2</div><div><h4>Base con canal de cableado y tapas<span class="tag">construido</span></h4><p>Placa que soporta el conjunto. Su canal, cerrado con <strong>tapas</strong>, rutea y protege el cableado entre el mástil, la caja electrónica y la DAQ.</p></div></div>
+  <div class="comp"><div class="cn">3</div><div><h4>Varilla (250 mm)<span class="tag">construido</span></h4><p>Tubo gris de 250 mm; el cableado de los motores puede pasar por su interior.</p></div></div>
+  <div class="comp"><div class="cn">4</div><div><h4>Acople varilla–encoder<span class="tag">construido</span></h4><p>Pieza roja al frente del mástil que une la varilla con el eje del encoder: es el pivote.</p></div></div>
+  <div class="comp"><div class="cn">5</div><div><h4>Encoder óptico YUMO E6B2-CWZ3E<span class="tag">adquirido</span></h4><p>Encoder incremental de 2000 P/R montado detrás del mástil. Mide el ángulo de la varilla.</p></div></div>
+  <div class="comp"><div class="cn">6</div><div><h4>Soporte de motores<span class="tag">construido</span></h4><p>Pieza roja en el extremo superior de la varilla; el eje de los motores queda a 25,5 cm del pivote.</p></div></div>
+   <div class="comp"><div class="cn">7</div><div><h4>Motor DC (×2)<span class="tag">adquirido</span></h4><p>Motores de 3,7 V nominales. Solo uno está encendido a la vez. Ensayos de escalón: casi todo/nada, 17–20 mN·m al mínimo y 44–47 mN·m saturado, τm ≈ 0,03 s; el izquierdo da ≈ 5 % más.</p></div></div>
+  <div class="comp"><div class="cn">8</div><div><h4>Hélice (×2)<span class="tag">adquirido</span></h4><p>Hélices de 55 mm. Cada una sopla hacia afuera, así que empuja la varilla hacia el lado contrario.</p></div></div>
+   <div class="comp"><div class="cn">9</div><div><h4>Caja electrónica<span class="tag">construido</span></h4><p>Caja de PLA y acrílico con agujeros frontales para conectores. Aloja la fuente de 12 V, el regulador LM2596, la baquela con el comparador LM324 y el puente H L298N.</p></div></div>
+  <div class="comp"><div class="cn">10</div><div><h4>DAQ NI USB-6212<span class="tag">adquirido</span></h4><p>Lee el encoder con un contador, genera el voltaje de mando en ao0 y enciende con line0 o line1 el motor que toca. La de la universidad va dentro de una carcasa protectora; las conexiones son las de la tarjeta.</p></div></div>
+  <div class="comp"><div class="cn">11</div><div><h4>Generador de onda<span class="tag">laboratorio</span></h4><p>Entrega la señal diente de sierra que el comparador usa como portadora del PWM.</p></div></div>
+  <div class="comp"><div class="cn" style="background:#6b7280; font-size:20px;">PC</div><div><h4>Computador con LabVIEW</h4><p>Ejecuta el VI de control, muestra las gráficas y registra los datos (no aparece en las figuras).</p></div></div>
+  <div class="fig-grid2" style="margin-top:18px;">
+    <figure class="fig"><div class="fig-img light"><img src="assets/render/foto_lateral.jpg" alt="Vista lateral del ensamblaje" style="object-fit:contain;"><span class="fig-no">06</span><span class="fig-tag">Vista lateral</span></div>
+      <figcaption>Fig. 6 — Vista lateral: mástil (1), caja electrónica (9), DAQ (10) y generador de onda (11).</figcaption></figure>
+    <figure class="fig"><div class="fig-img light"><img src="assets/render/foto_pendulo.jpg" alt="Detalle del péndulo: mástil, encoder, varilla y soporte de motores" style="object-fit:contain;"><span class="fig-no">07</span><span class="fig-tag">Detalle del péndulo</span></div>
+      <figcaption>Fig. 7 — Péndulo: mástil (1), acople (4), encoder (5) detrás del mástil, varilla (3) y soporte de motores (6).</figcaption></figure>
+  </div>
+</section>
+
+<!-- ============ 03 · SEGURIDAD ============ -->
+<section class="sheet" data-screen-label="Seguridad de operación">
+  <span class="pgnum">08</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">03</span> Antes de operar</div>
+    <h1 class="sec-title">Seguridad de operación</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <div class="warn">
+    <span class="lbl">⚠ Riesgo mecánico — hélices en movimiento</span>
+    <strong>No acerque las manos a las hélices con el sistema energizado.</strong> Al activar Habilitar motores, el motor que elige el control arranca de inmediato y su hélice gira aun con el voltaje mínimo.
+  </div>
+  <h3 class="sub"><span class="dot"></span>Reglas de operación</h3>
+  <ul class="clean">
+    <li>Sujete la varilla por debajo del soporte de motores, nunca cerca de las hélices.</li>
+     <li>El PWM está invertido: <strong>0 V en la AO es el empuje máximo</strong>. Para apagar, ponga primero Habilitar motores en OFF (el VI deja las líneas en 0); el STOP a veces no responde al primer clic.</li>
+    <li>Mantenga el cableado dentro del canal de la base con las tapas puestas; nada debe cruzar la zona de giro.</li>
+    <li>El ángulo límite del VI está en 90°. En las primeras pruebas bájelo (por ejemplo a 30°) para que las salidas vayan a 0 V si la varilla se aleja.</li>
+    <li>Detenga el VI antes de desconectar la DAQ, el puente H o la fuente.</li>
+    <li>Revise polaridades antes de energizar: fuente 12 V, salida del buck y alimentación del encoder.</li>
+    <li>No alimente el encoder con un voltaje que haga que sus salidas superen 5 V en las entradas de la DAQ <span class="verify">[VERIFICAR alimentación del encoder]</span>.</li>
+    <li>Comience con ganancias bajas y con una persona lista para sujetar la varilla.</li>
+  </ul>
+  <div class="note">
+    <span class="lbl">Por qué hay que sostener la varilla</span>
+    Apagar los motores no detiene el movimiento de un péndulo invertido: lo deja caer. Toda prueba en lazo abierto o con ganancias nuevas se hace con la varilla sujeta o con recorrido limitado.
+  </div>
+</section>
+
+<!-- ============ 04 · CONEXIONES ============ -->
+<section class="sheet" data-screen-label="Conexiones físicas">
+  <span class="pgnum">09</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">04</span> Hardware</div>
+    <h1 class="sec-title">Conexiones físicas</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">El cableado se organiza en tres grupos: <span class="accent-b">señal</span> (encoder y salidas analógicas de la DAQ), <span class="accent">potencia</span> (puente H a motores) y <strong>alimentación</strong> (12 V, 5 V y tierra común). Todos los cables viajan por el canal de cableado de la base.</p>
+  <table class="tbl">
+    <thead><tr><th>Enlace</th><th>Desde → Hacia</th><th>Tipo</th></tr></thead>
+    <tbody>
+      <tr><td>Alimentación principal</td><td>Fuente 12 V / 5 A → entrada del buck LM2596</td><td>Potencia</td></tr>
+      <tr><td>Potencia de motores</td><td>Buck 5 V → L298N VS (+12V del módulo) y GND</td><td>Potencia</td></tr>
+       <tr><td>Magnitud del empuje</td><td>DAQ <b>ao0</b> (borne 12) · AO GND (14) → comparador LM324</td><td>Analógica 0–5 V</td></tr>
+       <tr><td>Motor elegido</td><td>DAQ <b>port0/line0</b> (44) → L298N, motor derecho · <b>port0/line1</b> (45) → motor izquierdo · D GND (43/48)</td><td>Digital</td></tr>
+       <tr><td>Portadora</td><td>Generador de onda (sierra 0–5 V, 100 Hz) → LM324</td><td>Señal</td></tr>
+       <tr><td>PWM</td><td>Salida del LM324 → ENA y ENB del L298N (invertido: AO 0 V = máximo)</td><td>Digital</td></tr>
+       <tr><td>Sentido de giro</td><td>IN2 e IN4 a GND: cada motor gira siempre en el mismo sentido y sopla hacia afuera (verificado en el laboratorio)</td><td>Digital</td></tr>
+      <tr><td>Motores</td><td>OUT1–OUT2 → motor derecho · OUT3–OUT4 → motor izquierdo</td><td>Potencia</td></tr>
+       <tr><td>Encoder canal A</td><td>E6B2 A → DAQ <b>PFI8</b> (ctr0 A)</td><td>Digital</td></tr>
+       <tr><td>Encoder canal B</td><td>E6B2 B → DAQ <b>PFI10</b> (ctr0 B)</td><td>Digital</td></tr>
+      <tr><td>Alimentación encoder</td><td>+5 V → encoder +V · 0 V → GND · A → PFI8 (33) · B → PFI10 (35)</td><td>Alimentación</td></tr>
+      <tr><td>Tierra común</td><td>GND de fuente, buck, L298N, comparador, encoder y DAQ (D GND / AO GND)</td><td>Referencia</td></tr>
+      <tr><td>Datos</td><td>DAQ NI USB-6212 → PC (USB)</td><td>USB</td></tr>
+    </tbody>
+  </table>
+  <div class="tip">
+    <span class="lbl">Cómo confirmar los terminales del contador</span>
+    En NI MAX abra el dispositivo, pestaña <strong>Device Routes</strong> o el <strong>pinout</strong>, y busque los terminales por defecto de “Ctr0 A” y “Ctr0 B” en modo encoder. Use esos terminales o cámbielos explícitamente en la tarea DAQmx del VI.
+  </div>
+  <div class="warn">
+    <span class="lbl">Antes de energizar</span>
+    Confirme la tierra común entre la DAQ y la etapa de potencia; sin ella el PWM y el conteo del encoder son erráticos. Verifique también que IN1–IN4 tengan niveles válidos con el VS usado (con VS = 5 V el módulo puede requerir adaptar niveles).
+  </div>
+</section>
+
+<!-- ============ 04b · DIAGRAMA DE CONEXIÓN ============ -->
+<section class="sheet" data-screen-label="Diagrama de conexión">
+  <span class="pgnum">10</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">04</span> Hardware</div>
+    <h1 class="sec-title tight">Diagrama de conexión</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <img src="assets/diagramas/conexiones.svg" alt="Diagrama de conexiones del aeropéndulo invertido" style="display:block;width:100%;background:#fff;border:1px solid #e3e6ea;">
+  <figure class="fig">
+    <div class="fig-img light" style="height:300px;"><img src="assets/proteus-circuito.png" alt="Esquema del circuito simulado en Proteus" style="object-fit:contain;"><span class="fig-no">08</span><span class="fig-tag">Proteus</span></div>
+    <figcaption>Fig. 8 — Circuito simulado en Proteus: generador, comparador, puente H, motores y regulador buck. Proteus no trae el LM324 de la baquela; en la simulación se usó un LM393.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ 05 · ENCODER ============ -->
+<section class="sheet" data-screen-label="Encoder YUMO">
+  <span class="pgnum">11</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">05</span> Instrumentación</div>
+    <h1 class="sec-title">Encoder YUMO E6B2-CWZ3E</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">Encoder óptico incremental de <strong>2000 pulsos por vuelta</strong> con salidas en cuadratura A y B (y pulso índice Z). La DAQ cuenta los cuatro flancos de A y B (decodificación <strong>X4</strong>): 8000 cuentas por vuelta.</p>
+  <h3 class="sub"><span class="dot"></span>Conversión de cuentas a ángulo</h3>
+  <div class="formula">
+    <div class="eq">θ<span style="color:#9aa0ab">[°]</span> = <span class="v">N<sub>cuentas</sub></span> × 360 / 8000 = <span class="v">N<sub>cuentas</sub></span> × 0,045</div>
+    <div class="cap">N = 0 en la vertical (cero fijado al iniciar el VI). En DAQmx puede usarse directamente el canal “Angular Encoder” con 2000 pulsos/rev, X4 y unidades en grados.</div>
+  </div>
+  <table class="tbl center">
+    <thead><tr><th>Ángulo θ</th><th>Cuentas (X4)</th><th>Interpretación</th></tr></thead>
+    <tbody>
+      <tr><td class="num">0,045°</td><td class="num">1</td><td>Resolución</td></tr>
+      <tr><td class="num">1°</td><td class="num">≈ 22,2</td><td>—</td></tr>
+      <tr><td class="num">±2°</td><td class="num">≈ ±44,4</td><td>Límite de la especificación</td></tr>
+      <tr><td class="num">±15°</td><td class="num">≈ ±333</td><td>Corte de seguridad sugerido</td></tr>
+    </tbody>
+  </table>
+  <h3 class="sub"><span class="dot"></span>Cableado del encoder</h3>
+  <table class="tbl">
+    <thead><tr><th>Señal</th><th>Color (estándar Omron)</th><th>Destino</th></tr></thead>
+    <tbody>
+      <tr><td>+V</td><td>Café <span class="verify">[VERIFICAR]</span></td><td>+5 V</td></tr>
+      <tr><td>0 V</td><td>Azul <span class="verify">[VERIFICAR]</span></td><td>GND común</td></tr>
+      <tr><td>A</td><td>Negro <span class="verify">[VERIFICAR]</span></td><td>Ctr0 A</td></tr>
+      <tr><td>B</td><td>Blanco <span class="verify">[VERIFICAR]</span></td><td>Ctr0 B</td></tr>
+      <tr><td>Z</td><td>Naranja <span class="verify">[VERIFICAR]</span></td><td>Sin conectar (opcional)</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <span class="lbl">Caracterización realizada</span>
+    La vuelta a mano del avance (1804 a 1828 pulsos) se hizo con un encoder que resultó dañado y no se usa. Con el encoder nuevo se verificó el signo (varilla a la derecha = <strong>+45,6°</strong>) y el lazo usa la escala nominal de 0,045° por cuenta. La salida CWZ3E es de voltaje con transistor NPN: confirme el nivel lógico con un osciloscopio antes de conectarla a la DAQ.
+  </div>
+</section>
+
+<!-- ============ 06 · PWM + POTENCIA ============ -->
+<section class="sheet" data-screen-label="PWM y etapa de potencia">
+  <span class="pgnum">12</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">06</span> Actuación</div>
+    <h1 class="sec-title tight">Generación PWM y etapa de potencia</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">El voltaje de <strong>ao0</strong> se compara con una <strong>sierra de 0 a 5 V y 100 Hz</strong>. El PWM resultante habilita (ENA/ENB) el puente H y la línea digital elige cuál motor recibe la potencia.</p>
+  <div class="flow" style="max-width:560px; margin:16px auto;">
+    <div class="fbox"><span class="t">LabVIEW</span>u del I-PD → V = Voff + Kv·|u| (actuador lineal) → ao0 = 5 − V (PWM invertido)</div>
+    <div class="farrow"><svg width="16" height="20"><path d="M8 0v15M3 11l5 5 5-5" stroke="#9aa0ab" stroke-width="1.6" fill="none"/></svg></div>
+    <div class="fbox"><span class="t">Comparador LM324</span>ao0 vs. sierra (0–5 V, 100 Hz) → PWM invertido · line0/line1 eligen el motor</div>
+    <div class="farrow"><svg width="16" height="20"><path d="M8 0v15M3 11l5 5 5-5" stroke="#9aa0ab" stroke-width="1.6" fill="none"/></svg></div>
+    <div class="fbox sat"><span class="t">Puente H L298N</span>ENA/ENB = PWM · IN1 o IN3 = motor elegido · un motor a la vez</div>
+    <div class="farrow"><svg width="16" height="20"><path d="M8 0v15M3 11l5 5 5-5" stroke="#9aa0ab" stroke-width="1.6" fill="none"/></svg></div>
+    <div class="fbox plant"><span class="t">Actuadores</span>Motor derecho y motor izquierdo con hélice · 17–47 mN·m cada uno</div>
+  </div>
+  <h3 class="sub"><span class="dot"></span>Escala de la salida analógica</h3>
+  <div class="formula">
+    <div class="eq">ciclo útil = 1 − <span class="v">AO</span> / 5 V  ·  <span class="v">AO</span> = 5 − <span class="b">V</span></div>
+    <div class="cap">El PWM quedó invertido en la electrónica y se compensa en el código con el interruptor “PWM invertido” (AO = 5 − V). La hélice gira aun con la AO en 5 V; desde AO ≤ 4 V el motor ya da casi todo su torque.</div>
+  </div>
+  <h3 class="sub"><span class="dot"></span>Caracterización del actuador</h3>
+  <table class="tbl center">
+    <caption class="tbl-cap" style="caption-side:top; text-align:left;">Tabla 1. Empuje según el ajuste F = k₂V² + k₁V con anemómetro (k₂ = 6,83×10⁻³ N/V², k₁ = 8,19×10⁻³ N/V, R² = 0,997)</caption>
+    <thead><tr><th>Voltaje V [V]</th><th>Empuje F [mN]</th><th>dF/dV [mN/V]</th></tr></thead>
+    <tbody>
+      <tr><td class="num">2,5</td><td class="num">63,2</td><td class="num">42,3</td></tr>
+      <tr><td class="num">2,8</td><td class="num">76,5</td><td class="num">46,4</td></tr>
+      <tr><td class="num">3,0</td><td class="num">86,0</td><td class="num">49,2</td></tr>
+      <tr><td class="num">3,2</td><td class="num">96,2</td><td class="num">51,9</td></tr>
+      <tr><td class="num">3,5</td><td class="num">112,3</td><td class="num">56,0</td></tr>
+    </tbody>
+  </table>
+  <div class="warn">
+    <span class="lbl">Lo que mostró la planta</span>
+    Estos valores son del anemómetro (informe de avance). Los ensayos de escalón mostraron que, en el rango que usa el control, el motor es casi todo/nada: 17–20 mN·m al mínimo y 44–47 mN·m saturado.
+  </div>
+</section>
+
+<!-- ============ 07 · ARQUITECTURA DE CONTROL ============ -->
+<section class="sheet" data-screen-label="Arquitectura de control">
+  <span class="pgnum">13</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">07</span> Teoría</div>
+    <h1 class="sec-title">Arquitectura de control</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <h4 class="sub2">Parámetros del modelo</h4>
+  <table class="tbl">
+    <thead><tr><th>Parámetro</th><th>Valor</th><th>Tipo</th></tr></thead>
+    <tbody>
+      <tr><td>Inercia respecto al pivote I</td><td class="num">1,14 × 10⁻³ kg·m²</td><td>calculado</td></tr>
+      <tr><td>Rigidez gravitacional K</td><td class="num">0,0461 N·m/rad</td><td>calculado</td></tr>
+      <tr><td>Brazo del empuje Lm</td><td class="num">0,255 m</td><td>medido</td></tr>
+      <tr><td>Ganancia de empuje kF (u₀ = 3 V)</td><td class="num">49,2 mN/V</td><td>medido</td></tr>
+      <tr><td>Ganancia de torque Km = 2·Lm·kF</td><td class="num">0,0251 N·m/V</td><td>calculado</td></tr>
+      <tr><td>Fricción viscosa b</td><td class="num">≈ 1–2 × 10⁻⁴ N·m·s/rad</td><td><span class="accent">sin medir</span></td></tr>
+      <tr><td>Constante de tiempo motor-hélice τm</td><td class="num">0,02–0,04 s</td><td>ensayos de escalón</td></tr><tr><td>Torque de un motor</td><td class="num">17–20 mN·m mín. · 44–47 mN·m a AO 2,5–3,5 V · ≈ 57 mN·m a AO 0 V</td><td>ensayos de escalón</td></tr><tr><td>Topes mecánicos</td><td class="num">−70,7° / +69,85°</td><td>medidos con el encoder</td></tr>
+    </tbody>
+  </table>
+  <h3 class="sub"><span class="dot"></span>Modelo de la planta</h3>
+  <div class="formula">
+    <div class="eq">I·θ̈ + b·θ̇ − K·sin θ = <span class="v">±L<sub>m</sub>·F</span> ≈ <span class="v">K<sub>m</sub>·u</span>,  F = 2·k<sub>F</sub>·|u|</div>
+    <div class="eq" style="margin-top:10px;">G(s) = K<sub>m</sub>·e<sup>−t<sub>d</sub>s</sup> / [(τ<sub>m</sub>s + 1)(I s² + b s − K)], con τ<sub>m</sub> = 0,03 s y t<sub>d</sub> ≈ 0,01 s</div>
+    <div class="cap">Polos en lazo abierto: +6,32, −6,40 y −33,3 s⁻¹. El polo positivo hace que la varilla caiga sin control.</div>
+  </div>
+  <h3 class="sub"><span class="dot"></span>Controlador I-PD</h3>
+  <div class="formula">
+    <div class="eq">u = <span class="b">K<sub>i</sub></span>∫(θ<sub>ref</sub> − θ)dt − <span class="b">K<sub>p</sub></span>·θ − <span class="b">K<sub>d</sub></span>·θ̇</div>
+    <div class="cap">P y D actúan sobre la medida (evitan saltos ante cambios de referencia); la integral corrige el error permanente. Salida limitada a |u| ≤ 1,14 (integral congelada si satura).</div>
+  </div>
+  <div class="specgrid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="spec"><div class="k">Proporcional</div><div class="v" style="color:var(--blue-deep)">Kp = 2 <small>V/rad</small></div></div>
+    <div class="spec"><div class="k">Integral</div><div class="v" style="color:var(--blue-deep)">Ki = 0,4 <small>V/(rad·s)</small></div></div>
+    <div class="spec"><div class="k">Derivativo</div><div class="v" style="color:var(--blue-deep)">Kd = 0,9 <small>V·s/rad · filtro 5 ms</small></div></div><div class="spec"><div class="k">Actuador</div><div class="v" style="color:var(--blue-deep)">Kv = 0,6 <small>Voff 0,2 V</small></div></div>
+  </div>
+  <div class="warn">
+    <span class="lbl">Ganancias finales</span>
+    Salieron de 42 ensayos sobre la planta. Con el programa de control de 2 ms dieron 0,88° rms y 99 % del tiempo dentro de ±2° (prueba 8); en el VI, que corre a 6,6 ms por ciclo, la varilla oscila ±2–3° al arrancar y luego queda dentro de ±2°. El cambio decisivo fue el filtro del derivativo de 5 ms: el cálculo original (0,8/0,2) equivalía a reaccionar ~40 ms tarde. Partiendo de las ganancias del diseño (Kp 2,23), la varilla vibraba, se recostaba o caía; lo mejor antes de medir la planta fue ±6°.
+  </div>
+</section>
+
+<!-- ============ 08 · DIAGRAMA DE BLOQUES ============ -->
+<section class="sheet" data-screen-label="Diagrama de bloques">
+  <span class="pgnum">14</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">08</span> Teoría</div>
+    <h1 class="sec-title">Diagrama de bloques</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <img src="assets/diagramas/lazo.svg" alt="Diagrama de bloques del lazo cerrado I-PD" style="display:block;width:100%;margin:18px 0 10px;background:#fff;border:1px solid #e3e6ea;">
+  <table class="tbl"><tbody>
+    <tr><td>Integral</td><td>Actúa sobre el error e = θref − θ. Se congela si u satura.</td></tr>
+    <tr><td>P y D</td><td>Actúan sobre el ángulo medido; la derivada pasa por un filtro de 5 ms.</td></tr>
+    <tr><td>Límite y motor</td><td>|u| ≤ 1,14. Si u &gt; 0 se enciende el motor izquierdo (line1) y la varilla va a la derecha; si u &lt; 0, el derecho (line0).</td></tr>
+    <tr><td>Actuador</td><td>V = Voff + Kv·|u| y AO = 5 − V (PWM invertido).</td></tr>
+  </tbody></table>
+  <p class="fb-note">Sistema SISO: dos actuadores, uno encendido a la vez, y una sola variable controlada (θ).</p>
+</section>
+
+<!-- ============ 09 · LABVIEW ============ -->
+<section class="sheet" data-screen-label="Uso con LabVIEW y DAQ">
+  <span class="pgnum">15</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">09</span> Software</div>
+    <h1 class="sec-title">Uso con LabVIEW y DAQ</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">El VI lee el encoder con un contador, calcula el I-PD en un Formula Node, escribe el voltaje en ao0 y enciende con una línea digital el motor que corresponde.</p>
+  <h3 class="sub"><span class="dot"></span>Configuración de las tareas DAQmx</h3>
+  <table class="tbl">
+    <thead><tr><th>Tarea</th><th>Configuración</th></tr></thead>
+    <tbody>
+      <tr><td>Entrada del encoder</td><td>Counter Input → Angular Encoder · Ctr0 · X4 · 2000 pulsos/rev · grados · valor inicial 0</td></tr>
+      <tr><td>Salida analógica</td><td>DAQ Assistant · Analog Output · <b>ao0</b> · rango 0 a 5 V · una muestra por ciclo</td></tr>
+      <tr><td>Salidas digitales</td><td>DAQ Assistant 3 · Digital Output · <b>port0/line0</b> (motor derecho) y <b>port0/line1</b> (motor izquierdo)</td></tr>
+      <tr><td>Dispositivo</td><td>“Dev10” en el PC del laboratorio; si NI MAX muestra otro nombre, cambiar el canal físico en cada DAQ Assistant</td></tr>
+      <tr><td>Temporización</td><td>While Loop con Wait de 1 ms: el ciclo real es de 6,6 ms (lo limitan los DAQ Assistant). El Formula Node mide h con el reloj del sistema (si h &gt; 0,1 s usa 0,01 s)</td></tr>
+    </tbody>
+  </table>
+  <h3 class="sub"><span class="dot"></span>Panel frontal</h3>
+  <table class="tbl">
+    <thead><tr><th>Control / indicador</th><th>Función</th></tr></thead>
+    <tbody>
+      <tr><td>Modo de arranque</td><td>Vertical (sostener a mano y soltar) · Swing up desde el tope IZQUIERDO · Swing up desde el tope DERECHO. En swing up la vertical se calcula desde el tope elegido (−70,7° o +69,85°).</td></tr>
+      <tr><td>Corte</td><td>Ángulo donde se apaga el empuje de subida para que la varilla planee (45°). Si se pasa al otro lado, súbalo (50); si no alcanza a llegar, bájelo (40).</td></tr>
+      <tr><td>Estado swing up</td><td>0 sube · 1 planea · 2 sostiene · 3 no despegó del tope en 1,5 s: motores apagados por seguridad (casi siempre es el lado equivocado).</td></tr>
+      <tr><td>Referencia (grados)</td><td>θref; normalmente 0° (vertical).</td></tr><tr><td>Habilitar · Modo automático · Invertir sentido · Tarar</td><td>Interruptores de operación; Tarar fija el cero del encoder con la varilla vertical.</td></tr><tr><td>Voff · Vmax AO · Kv actuador · Ángulo límite</td><td>Arranque del motor (0,2 V), tope del voltaje (5 V), ganancia del actuador (0,6) y apagado de seguridad (90°).</td></tr><tr><td>PWM invertido</td><td>ON: escribe AO = 5 − V para compensar el PWM invertido del circuito.</td></tr><tr><td>Vr reposo · V cerca de 0 · V pulsos</td><td>Funciones de prueba que no mejoraron el control; deben quedar en 0.</td></tr><tr><td>Motor manual · Voltaje manual</td><td>Prueba de cada motor en lazo abierto.</td></tr>
+      <tr><td>Kp · Ki · Kd</td><td>Ganancias del I-PD, en unidades de radianes (el VI multiplica el ángulo por π/180).</td></tr>
+      <tr><td>Ángulo</td><td>θ medido por el encoder, en grados.</td></tr>
+      <tr><td>Voltaje a la AO · Motor activo · Salida u</td><td>Lo que el VI escribe en ao0, qué motor está encendido (0, 1 o 2) y la salida del I-PD.</td></tr><tr><td>Gráficas</td><td>Ángulo vs. referencia y error, con la banda de ±2°.</td></tr>
+      <tr><td>STOP</td><td>Detiene el bucle y lleva las salidas a 0 V.</td></tr>
+    </tbody>
+  </table>
+  <figure class="fig">
+    <div class="fig-img light" style="height:230px;"><img src="assets/final/VI_panel_frontal_19nov.png" alt="Panel frontal final del VI control aeropendulo Ismael.vi con el selector de modo de arranque" style="object-fit:contain;"><span class="fig-no">09</span><span class="fig-tag">Panel frontal</span></div>
+    <figcaption>Fig. 9 — Panel frontal final del VI “control aeropendulo Ismael.vi”: a la izquierda el modo de arranque, los botones y las perillas del PID; al centro las gráficas; a la derecha el medidor, los indicadores y los ajustes.</figcaption>
+  </figure>
+  <div class="tip">
+    <span class="lbl">Buena práctica</span>
+    Guarde en cada ensayo t, θ, θref, u, ao0 y el motor activo en un archivo CSV; el gemelo digital usa las mismas magnitudes, así puede superponer real y simulado.
+  </div>
+</section>
+
+<!-- ============ 10 · CALIBRACIÓN ============ -->
+<section class="sheet" data-screen-label="Calibración">
+  <span class="pgnum">16</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">10</span> Instrumentación</div>
+    <h1 class="sec-title">Calibración del cero y verificación</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">El encoder es incremental: no conoce la posición absoluta. El cero (vertical) se fija cada vez que se inicia la tarea del contador.</p>
+  <ol class="steps">
+    <li><strong>Motores apagados</strong>Con el VI detenido y la fuente de motores apagada.</li>
+    <li><strong>Sostener la varilla en la vertical</strong>Use una escuadra o un nivel apoyado en la varilla.</li>
+    <li><strong>Iniciar el VI</strong>El contador arranca en 0: esa posición es θ = 0.</li>
+    <li><strong>Verificar el sentido</strong>Incline la varilla a la derecha, vista de frente: el ángulo debe crecer (se midió +45,6°). Si disminuye, intercambie A y B o invierta el signo en el VI.</li>
+    <li><strong>Verificar la escala</strong>Lleve la varilla a ángulos conocidos (por ejemplo ±10° con transportador) y compare. Repita al menos tres veces en cada sentido.</li>
+    <li><strong>Registrar</strong>Anote las lecturas y su dispersión en la bitácora.</li>
+  </ol>
+  <div class="note">
+    <span class="lbl">Alternativa con el pulso índice</span>
+    Si se cablea Z, puede usarse como referencia repetible: ubique el índice, mida su ángulo respecto a la vertical una vez y aplique ese desplazamiento en el VI.
+  </div>
+</section>
+
+<!-- ============ 11 · ENCENDIDO ============ -->
+<section class="sheet" data-screen-label="Encendido paso a paso">
+  <span class="pgnum">17</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">11</span> Operación</div>
+    <h1 class="sec-title">Encendido paso a paso</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <h3 class="sub"><span class="dot"></span>Lista de chequeo antes de encender</h3>
+  <ul class="checklist">
+    <li><span class="box"></span>Base firme sobre la mesa; tapas del canal de cableado puestas.</li>
+    <li><span class="box"></span>Hélices bien sujetas y sin fisuras.</li>
+    <li><span class="box"></span>Ningún cable dentro de la zona de giro.</li>
+    <li><span class="box"></span>Generador de onda en diente de sierra, 0–5 V, 100 Hz, conectado al comparador LM324 (con menos amplitud los motores no giran).</li><li><span class="box"></span>Test Panel de NI MAX cerrado (si no, las líneas quedan tomadas: error −50103 / −200587).</li><li><span class="box"></span>Nombre de la DAQ en los 3 DAQ Assistant: Dev10 en el PC del laboratorio, Dev1 en el de Ismael.</li>
+    <li><span class="box"></span>Tierra común entre DAQ, comparador, puente H y fuente.</li>
+    <li><span class="box"></span>DAQ conectada y reconocida en NI MAX.</li>
+    <li><span class="box"></span>Ganancias y corte por ángulo configurados en el VI.</li>
+    <li><span class="box"></span>Una persona lista para sostener la varilla.</li>
+  </ul>
+  <h3 class="sub"><span class="dot"></span>Procedimiento</h3>
+  <ol class="steps">
+    <li><strong>Conectar la DAQ</strong>al PC por USB y verificar en NI MAX.</li>
+    <li><strong>Encender el generador</strong>y comprobar la sierra con el osciloscopio.</li>
+    <li><strong>Abrir el VI</strong>con STOP accesible.</li>
+    <li><strong>Fijar el cero</strong>sosteniendo la varilla en la vertical (§10).</li>
+    <li><strong>Energizar la fuente de 12 V</strong>y verificar 5 V a la salida del buck.</li>
+    <li><strong>Ejecutar el VI</strong>con la varilla sostenida y active Habilitar motores.</li>
+    <li><strong>Soltar la varilla con suavidad</strong>y observar ángulo y voltajes.</li>
+    <li><strong>Registrar</strong>θ, u, ao0 y motor activo.</li>
+  </ol>
+</section>
+
+<!-- ============ 12 · MODOS ============ -->
+<section class="sheet" data-screen-label="Modos de operación">
+  <span class="pgnum">18</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">12</span> Operación</div>
+    <h1 class="sec-title">Modos de operación</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <div class="grid3">
+    <div class="mode"><div class="m">MODO A</div><b>Solo medición</b><p>Motores apagados. Se verifica el encoder moviendo la varilla a mano.</p></div>
+    <div class="mode"><div class="m" style="color:var(--ink)">MODO B</div><b>Modo manual</b><p>Modo automático OFF, Motor manual 1 (derecho) o 2 (izquierdo) y Voltaje manual (voltaje pedido; la AO queda en 5 − V). Con la varilla sostenida se verifica hacia dónde empuja cada motor.</p></div>
+    <div class="mode on"><div class="m" style="color:var(--blue-deep)">MODO C</div><b>Lazo cerrado I-PD</b><p>Modo de arranque Vertical: se sostiene la varilla derecha, se da Run y se suelta. El cero queda donde esté la varilla al dar Run.</p></div>
+  </div>
+  <div class="mode on" style="margin-top:10px"><div class="m" style="color:var(--blue-deep)">MODO D</div><b>Swing up desde un tope</b><p>Modo de arranque en tope izquierdo o derecho. La varilla quieta en ESE tope y las manos lejos de las hélices; al dar Run sube con empuje máximo, apaga los motores en el corte (45°) para que planee y el I-PD la atrapa a 12° de la vertical. Si se aleja más de 35°, vuelve a subir. En la planta subió en 0,57 s y quedó con 0,92° rms.</p></div>
+  <div class="note">
+    <span class="lbl">Orden recomendado</span>
+    Pase de A a B y de B a C solo cuando el modo anterior dé el resultado esperado. En el modo B el ángulo no se controla: la varilla debe estar sujeta.
+  </div>
+  <h3 class="sub"><span class="dot"></span>Pruebas recomendadas</h3>
+  <table class="tbl">
+    <thead><tr><th style="width:28px">#</th><th>Prueba</th><th>Procedimiento</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>Encoder</td><td>Mover la varilla ±10° con motores apagados.</td><td>Lectura coherente y repetible en ambos sentidos.</td></tr>
+      <tr><td class="num">2</td><td>Motores</td><td>Modo manual, motor 1 (derecho) y luego motor 2 (izquierdo) con voltaje manual bajo (0,5 V).</td><td>Cada motor sopla hacia afuera: el derecho empuja la varilla a la izquierda y el izquierdo a la derecha.</td></tr>
+      <tr><td class="num">3</td><td>Signo del control</td><td>Modo C con ganancias bajas, varilla sostenida.</td><td>Al inclinarla a la derecha se enciende el motor derecho, que la empuja hacia la izquierda.</td></tr>
+      <tr><td class="num">4</td><td>Estabilización</td><td>Soltar la varilla en la vertical.</td><td>|θ| ≤ 2° sostenido.</td></tr>
+      <tr><td class="num">5</td><td>Perturbación</td><td>Toque suave en la varilla.</td><td>Vuelve a la vertical sin saturar.</td></tr>
+      <tr><td class="num">6</td><td>Swing up</td><td>Varilla en el tope izquierdo, Modo de arranque “tope izquierdo”, Run. Repetir desde el derecho.</td><td>Sube en menos de 1 s y queda dentro de ±2°. Estado: 0 → 1 → 2.</td></tr>
+      <tr><td class="num">7</td><td>Lado equivocado</td><td>Varilla en el tope derecho con el modo “tope izquierdo”.</td><td>No despega: a los 1,5 s el estado pasa a 3 y los motores se apagan.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 13 · APAGADO ============ -->
+<section class="sheet" data-screen-label="Apagado seguro">
+  <span class="pgnum">19</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">13</span> Operación</div>
+    <h1 class="sec-title">Apagado seguro</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <p class="lead">Apague en orden inverso al encendido: primero el control, luego la potencia y por último las conexiones.</p>
+  <ol class="steps">
+    <li><strong>Sostener la varilla</strong>en la vertical.</li>
+    <li><strong>Presionar STOP</strong>; las salidas deben quedar en 0 V.</li>
+    <li><strong>Apagar la fuente de 12 V.</strong></li>
+    <li><strong>Apagar el generador</strong>de onda.</li>
+    <li><strong>Esperar a que las hélices se detengan</strong>y dejar la varilla apoyada en su tope.</li>
+    <li><strong>Desconectar la DAQ</strong>del PC.</li>
+  </ol>
+  <div class="warn">
+    <span class="lbl">Regla de oro</span>
+    Nunca desconecte la DAQ ni el puente H con el VI en ejecución. Al soltar la varilla sin control, cae: sosténgala siempre al detener.
+  </div>
+</section>
+
+<!-- ============ 14 · SOLUCIÓN DE PROBLEMAS ============ -->
+<section class="sheet" data-screen-label="Solución de problemas">
+  <span class="pgnum">20</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">14</span> Soporte</div>
+    <h1 class="sec-title">Solución de problemas</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <table class="tbl">
+    <thead><tr><th>Problema</th><th>Causa probable</th><th>Solución</th></tr></thead>
+    <tbody>
+      <tr><td>El ángulo no cambia.</td><td>Encoder sin alimentación o terminal de contador equivocado.</td><td>Verificar +V y GND; confirmar Ctr0 A/B en NI MAX.</td></tr>
+      <tr><td>El ángulo deriva o salta.</td><td>Sin tierra común, ruido o niveles lógicos inadecuados.</td><td>Unir tierras; revisar con osciloscopio los canales A y B.</td></tr>
+      <tr><td>El ángulo crece en sentido contrario.</td><td>Canales A y B invertidos.</td><td>Intercambiar A y B o cambiar el signo en el VI.</td></tr>
+      <tr><td>La varilla cae hacia un lado de inmediato.</td><td>Sentido del control invertido.</td><td>Activar <b>Invertir sentido</b> en el panel del VI.</td></tr>
+      <tr><td>Oscila y crece.</td><td>Retardo del derivativo o del lazo; Kd bajo.</td><td>Verificar el filtro de 5 ms y el Wait de 1 ms; no bajar Kd de 0,9; bajar Kv (≈ 0,6).</td></tr>
+      <tr><td>Motores con zumbido y poco empuje.</td><td>Sierra mal configurada o EN sin PWM.</td><td>Verificar sierra 0–5 V y salida del comparador.</td></tr>
+      <tr><td>Los motores no giran.</td><td>Amplitud de la sierra, PWM invertido en OFF o líneas tomadas por NI MAX.</td><td>Ajustar la sierra a 0–5 V y 100 Hz, activar PWM invertido y cerrar el Test Panel de NI MAX.</td></tr><tr><td>El ángulo queda siempre en 0.</td><td>Botón Tarar pegado en ON.</td><td>Tarar debe ser “Latch When Released”.</td></tr>
+      <tr><td>Error de DAQ en LabVIEW.</td><td>Canal o rango mal configurado.</td><td>Revisar tareas DAQmx (§09).</td></tr>
+    </tbody>
+  </table>
+  <div class="tip">
+    <span class="lbl">Diagnóstico en 3 pasos</span>
+    (1) Detenga el VI y sostenga la varilla, (2) verifique el cero y el sentido del encoder, (3) reduzca las ganancias y compare con el gemelo digital usando los mismos valores.
+  </div>
+</section>
+
+<!-- ============ 15 · MANTENIMIENTO ============ -->
+<section class="sheet" data-screen-label="Mantenimiento">
+  <span class="pgnum">21</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">15</span> Soporte</div>
+    <h1 class="sec-title">Mantenimiento</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <h3 class="sub"><span class="dot"></span>Antes de cada sesión</h3>
+  <ul class="clean">
+    <li>Revisar hélices y tornillos del soporte de motores.</li>
+    <li>Revisar que el acople no tenga juego sobre el eje del encoder.</li>
+    <li>Comprobar que los cables no estén tensionados al inclinar la varilla.</li>
+    <li>Confirmar que las tapas del canal de cableado estén en su sitio.</li>
+  </ul>
+  <h3 class="sub"><span class="dot"></span>Periódicamente</h3>
+  <ul class="clean">
+    <li>Repetir la verificación de escala del encoder (§10).</li>
+    <li>Repetir un ensayo de escalón por motor (varilla en el tope, motor 0,6 s) y comparar la subida con la de los registros de referencia para detectar desgaste.</li>
+    <li>Documentar cambios de cableado, terminales de la DAQ y versión del VI.</li>
+  </ul>
+  <div class="note">
+    <span class="lbl">Bitácora recomendada</span>
+    Registre en cada sesión: ganancias, periodo de muestreo, terminales usados, versión del VI y observaciones. Facilita reproducir ensayos y compararlos con el gemelo digital.
+  </div>
+</section>
+
+<!-- ============ 16 · GEMELO DIGITAL ============ -->
+<section class="sheet dark" data-screen-label="Gemelo digital">
+  <span class="pgnum">22</span>
+  <div class="sec-head">
+    <div class="sec-kicker" style="color:#ff6a62;"><span class="sec-num" style="background:#2b2f37;">16</span> Simulación</div>
+    <h1 class="sec-title" style="color:#fff;">Gemelo digital</h1>
+    <div class="sec-rule" style="background:linear-gradient(90deg,var(--red) 0 64px,#262a31 64px);"></div>
+  </div>
+  <p class="lead" style="color:#e7e9ed;">El archivo <span class="mono">simulador.html</span> reproduce la planta en el navegador: integra el modelo no lineal en pasos de 0,5 ms con el actuador medido, el período del VI, la cuantización del encoder, la turbulencia del aire y el ruido de medida.</p>
+  <div class="grid3" style="margin:22px 0 8px;">
+    <div class="fbox pid" style="background:#15171c; border-color:#2b2f37; color:#fff;"><span class="t" style="color:#ff6a62;">Diseño</span>Ajustar el I-PD en el simulador</div>
+    <div class="fbox" style="background:#15171c; border-color:#2b2f37; color:#fff;"><span class="t" style="color:#7db0ff;">Planta real</span>Cargar las ganancias en el VI</div>
+    <div class="fbox sensor" style="background:#101a22; border-color:#2b6fa0; color:#cfe3f5;"><span class="t" style="color:#7db0ff;">Validación</span>Superponer CSV real y simulado</div>
+  </div>
+  <div class="note" style="background:#101a22; border-left-color:#2b6fa0; color:#c3cdd6; margin-top:22px;">
+    <span class="lbl" style="color:#7db0ff;">Modelo bajo el capó</span>
+    I·θ̈ = −b·θ̇ + K·sin θ + Lm·(F₁ − F₂) + τd, con un solo motor encendido, torque T = 44·(1 − e^(−V/0,35)) + 2,6·V mN·m ajustado a los ensayos de escalón y a los dos swing up reales, τm = 0,03 s, retardo de 0,01 s, topes en −70,7° y +69,85° y turbulencia del aire. El controlador es la traducción literal del Formula Node final del VI, con el swing up incluido.
+  </div>
+  <div class="note" style="background:#1c1710; border-left-color:#f59e0b; color:#d9cdb5;">
+    <span class="lbl" style="color:#f59e0b;">Hallazgo de simulación</span>
+    Calibrado así, el gemelo coincide dentro de ~0,3° en cinco de las 8 pruebas del laboratorio (prueba 8: 0,88° rms real, ≈ 1,0° simulado) y muestra por qué el VI original oscilaba: con el derivativo de ~40 ms y Kv 3,5 la varilla va de lado a lado ±15–25°.
+  </div>
+  <p style="color:#6b717b; font-size:11px; margin-top:18px; font-family:'JetBrains Mono';">Archivos: <span style="color:#9aa0ab;">index.html</span> (sitio) · <span style="color:#9aa0ab;">simulador.html</span> (gemelo) · <span style="color:#9aa0ab;">entrenamiento.html</span> (20 gemelos) · <span style="color:#9aa0ab;">gemelo-core.js</span> (modelo calibrado y Formula Node final).</p>
+</section>
+
+<section class="sheet" data-screen-label="Cómo usar el simulador">
+  <span class="pgnum">23</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">16</span> Simulación</div>
+    <h1 class="sec-title tight">Cómo usar el simulador</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <table class="tbl">
+    <thead><tr><th>Panel</th><th>Qué permite</th></tr></thead>
+    <tbody>
+      <tr><td>Prueba guiada</td><td>Equilibrio automático, soltar sin control, golpe, arrancar desde el tope, VI antes del ajuste, control externo de 2 ms, motor manual e inclinación de 12°.</td></tr>
+      <tr><td>Golpes y mano</td><td>Botones <strong>◀ golpe</strong> y <strong>golpe ▶</strong>, flechas del teclado o arrastrar la varilla con el mouse.</td></tr>
+      <tr><td>Controlador I-PD</td><td>Kp, Ki, Kd y el filtro de la derivada.</td></tr>
+      <tr><td>Planta</td><td>Torque máximo, τm, retardo, topes y b (la única que falta medir).</td></tr>
+      <tr><td>Instrumentación</td><td>Período del lazo (2, 6,6 o 10,5 ms), ruido de medida y turbulencia.</td></tr>
+      <tr><td>Gráficas y cadena</td><td>Ángulo con la banda de ±2°, salida u, voltaje de la AO y motor activo; cadena de señal en vivo de LabVIEW al encoder.</td></tr>
+    </tbody>
+  </table>
+  <h3 class="sub"><span class="dot"></span>Flujo de trabajo</h3>
+  <ol class="steps">
+    <li><strong>Partir de “Equilibrio automático”</strong>y observar la banda verde de ±2°.</li>
+    <li><strong>Ajustar las ganancias</strong>Kp responde más rápido, Kd amortigua, Ki elimina el error permanente; vigile la saturación.</li>
+    <li><strong>Probar perturbaciones</strong>con los botones de golpe o arrastrando la varilla.</li>
+    <li><strong>Probar “VI antes del ajuste”</strong>para ver la oscilación del derivativo de ~40 ms, y “Control externo 2 ms” para la prueba 8.</li>
+    <li><strong>Llevar a la planta</strong>y comparar con los registros de la planta.</li>
+  </ol>
+  <div class="warn">
+    <span class="lbl">Simulación ≠ planta real</span>
+    No incluye fricción seca, retardos variables de Windows y USB ni la dinámica eléctrica del puente H. Úselo para diseñar y entender, no como sustituto del ensayo.
+  </div>
+</section>
+
+<!-- ============ 17 · ESPECIFICACIONES ============ -->
+<section class="sheet" data-screen-label="Especificaciones técnicas">
+  <span class="pgnum">24</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">17</span> Referencia</div>
+    <h1 class="sec-title">Especificaciones técnicas</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <table class="tbl">
+    <thead><tr><th>Elemento</th><th>Especificación</th></tr></thead>
+    <tbody>
+      <tr><td>Varilla</td><td class="num">25 cm · 3,5 g · tubular</td></tr>
+      <tr><td>Brazo del empuje</td><td class="num">0,255 m</td></tr>
+      <tr><td>Altura total (planos)</td><td class="num">430,57 mm · mástil 153 mm</td></tr>
+      <tr><td>Motores</td><td class="num">2 × DC 3,7 V nominal · hélice 55 mm</td></tr>
+      <tr><td>Encoder</td><td class="num">YUMO E6B2-CWZ3E · 2000 P/R · A, B, Z</td></tr>
+      <tr><td>Resolución angular</td><td class="num">0,045° (X4)</td></tr>
+      <tr><td>DAQ</td><td class="num">NI USB-6212 · 16 bits · 2 AO · 2 contadores de 32 bits</td></tr>
+      <tr><td>Puente H</td><td class="num">L298N (módulo)</td></tr>
+      <tr><td>Comparador</td><td class="num">LM324 (en baquela) · PWM invertido</td></tr>
+      <tr><td>Portadora PWM</td><td class="num">Sierra 0–5 V · 100 Hz</td></tr>
+      <tr><td>Alimentación</td><td class="num">Fuente 12 V / 5 A · buck LM2596 a 5 V</td></tr>
+      <tr><td>Torque por motor</td><td class="num">17–47 mN·m · τm ≈ 0,03 s</td></tr>
+      <tr><td>Control</td><td class="num">I-PD · ciclo ≈ 6,6 ms · LabVIEW 2020/2021</td></tr>
+      <tr><td>Especificación de desempeño</td><td class="num">|θ| ≤ 2° respecto a la vertical</td></tr>
+    </tbody>
+  </table>
+  <figure class="fig">
+    <div class="fig-img light" style="height:280px;"><img src="assets/planos.png" alt="Planos generales" style="object-fit:contain;"><span class="fig-no">10</span><span class="fig-tag">Planos generales</span></div>
+    <figcaption>Fig. 10 — Cotas generales del mástil y la varilla.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ ANEXOS ============ -->
+<section class="sheet" data-screen-label="Anexos técnicos">
+  <span class="pgnum">25</span>
+  <div class="sec-head">
+    <div class="sec-kicker"><span class="sec-num">18</span> Referencia</div>
+    <h1 class="sec-title">Anexos técnicos</h1>
+    <div class="sec-rule"></div>
+  </div>
+  <h3 class="sub"><span class="dot"></span>Datos del montaje y cómo se confirmaron</h3>
+  <table class="tbl">
+    <thead><tr><th>Dato</th><th>Valor de este manual</th><th>Cómo confirmarlo</th></tr></thead>
+    <tbody>
+      <tr><td>Salidas de la DAQ</td><td>ao0 (magnitud) · port0/line0 y line1 (motor)</td><td>Configuradas en el VI</td></tr>
+      <tr><td>Terminales del contador</td><td>PFI8 (A) · PFI10 (B)</td><td>Configurados en el DAQ Assistant</td></tr>
+      <tr><td>Alimentación del encoder</td><td>+5 V</td><td>Medir y revisar salida con osciloscopio</td></tr>
+      <tr><td>Colores del encoder</td><td>Estándar Omron</td><td>Etiqueta del cable YUMO</td></tr>
+      <tr><td>Frecuencia de la sierra</td><td>100 Hz</td><td>Osciloscopio</td></tr>
+      <tr><td>Escala AO → torque</td><td>T = 47·(1 − e^(−(5 − AO)/0,42)) mN·m</td><td>Ensayos de escalón por motor</td></tr>
+      <tr><td>Niveles IN1–IN4</td><td>Fijos, un sentido</td><td>Hoja del módulo L298N y VS usado</td></tr>
+      <tr><td>Sentido positivo de θ</td><td>Varilla a la derecha, vista de frente (+45,6° medido)</td><td>Prueba 3 (§12)</td></tr>
+          </tbody>
+  </table>
+  <h3 class="sub"><span class="dot"></span>Glosario</h3>
+  <div class="gloss">
+    <div><b>u</b> salida del I-PD (“voltios equivalentes”): su signo elige el motor y su magnitud el empuje.</div>
+    <div><b>Kv</b> ganancia del actuador lineal: V = Voff + Kv·|u| (0,6).</div><div><b>PWM invertido</b> el circuito da más empuje con menos voltaje en la AO; el VI escribe AO = 5 − V.</div>
+    <div><b>I-PD</b> PID con P y D sobre la medida.</div>
+    <div><b>X4</b> conteo de los cuatro flancos de A y B.</div>
+    <div><b>Saturación</b> límite del mando: |u| ≤ 1,14.</div>
+    <div><b>Antienrollamiento</b> detener la integral al saturar.</div>
+    <div><b>Polo inestable</b> raíz con parte real positiva.</div>
+    <div><b>Gemelo digital</b> modelo que reproduce la planta.</div>
+  </div>
+  <div style="margin-top:36px; padding-top:20px; border-top:2px solid var(--ink); display:flex; align-items:center; gap:14px;">
+    <div>
+      <div style="font-family:'Bebas Neue'; font-size:22px; letter-spacing:.03em;">JARAPIS LAB</div>
+      <div class="mono" style="font-size:9.5px; letter-spacing:.16em; color:var(--ink-faint);">MANUAL DE USUARIO · AEROPÉNDULO INVERTIDO · v1.0 · 2026-2</div>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

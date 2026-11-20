@@ -1,0 +1,60 @@
+param([int]$Linea = 0, [double]$Vao = 2.0, [double]$TOn = 0.6, [double]$TTot = 2.5, [string]$Out = "", [string]$Dev = "Dev10")
+# Ensayo de escalon: varilla apoyada en un tope; enciende un motor (line0/line1) con AO = Vao durante TOn s
+# y registra el angulo del encoder (relativo a la posicion inicial) lo mas rapido posible. Guarda CSV t,ang,on.
+$src = @'
+using System; using System.Text; using System.Runtime.InteropServices;
+public static class Dq8 {
+  const string D = "nicaiu.dll";
+  [DllImport(D, CharSet=CharSet.Ansi)] public static extern int DAQmxCreateTask(string name, out IntPtr task);
+  [DllImport(D, CharSet=CharSet.Ansi)] public static extern int DAQmxCreateCIAngEncoderChan(IntPtr task, string counter, string name, int decoding, uint zEnable, double zVal, int zPhase, int units, uint ppr, double initAngle, string scale);
+  [DllImport(D, CharSet=CharSet.Ansi)] public static extern int DAQmxSetCIEncoderAInputTerm(IntPtr task, string chan, string term);
+  [DllImport(D, CharSet=CharSet.Ansi)] public static extern int DAQmxSetCIEncoderBInputTerm(IntPtr task, string chan, string term);
+  [DllImport(D)] public static extern int DAQmxReadCounterScalarF64(IntPtr task, double timeout, out double value, IntPtr reserved);
+  [DllImport(D, CharSet=CharSet.Ansi)] public static extern int DAQmxCreateAOVoltageChan(IntPtr t, string ch, string n, double min, double max, int units, string scale);
+  [DllImport(D)] public static extern int DAQmxWriteAnalogScalarF64(IntPtr t, uint auto, double timeout, double v, IntPtr r);
+  [DllImport(D, CharSet=CharSet.Ansi)] public static extern int DAQmxCreateDOChan(IntPtr t, string lines, string n, int grouping);
+  [DllImport(D)] public static extern int DAQmxWriteDigitalLines(IntPtr t, int ns, uint auto, double timeout, uint layout, byte[] data, out int written, IntPtr r);
+  [DllImport(D)] public static extern int DAQmxStartTask(IntPtr t);
+  [DllImport(D)] public static extern int DAQmxClearTask(IntPtr t);
+  [DllImport(D, CharSet=CharSet.Ansi)] public static extern int DAQmxGetExtendedErrorInfo(StringBuilder sb, uint size);
+  public static string Err() { var sb = new StringBuilder(2048); DAQmxGetExtendedErrorInfo(sb, 2048); return sb.ToString(); }
+}
+'@
+Add-Type -TypeDefinition $src
+$ic = [Globalization.CultureInfo]::InvariantCulture
+function Chk($rc, $what) { if ($rc -ne 0) { throw "$what -> ERROR $rc : $([Dq8]::Err())" } }
+$ci = [IntPtr]::Zero; $ao = [IntPtr]::Zero; $do = [IntPtr]::Zero; $w = 0
+try {
+  [void][Dq8]::DAQmxCreateTask("", [ref]$ci)
+  Chk ([Dq8]::DAQmxCreateCIAngEncoderChan($ci, "$Dev/ctr0", "", 10092, 0, 0.0, 10040, 10146, 2000, 0.0, "")) "encoder"
+  [void][Dq8]::DAQmxSetCIEncoderAInputTerm($ci, "", "/$Dev/PFI8"); [void][Dq8]::DAQmxSetCIEncoderBInputTerm($ci, "", "/$Dev/PFI10")
+  Chk ([Dq8]::DAQmxStartTask($ci)) "iniciar encoder"
+  [void][Dq8]::DAQmxCreateTask("", [ref]$ao); Chk ([Dq8]::DAQmxCreateAOVoltageChan($ao, "$Dev/ao0", "", 0.0, 5.0, 10348, "")) "AO"; Chk ([Dq8]::DAQmxStartTask($ao)) "iniciar AO"
+  [void][Dq8]::DAQmxCreateTask("", [ref]$do); Chk ([Dq8]::DAQmxCreateDOChan($do, "$Dev/port0/line0:1", "", 0)) "DO"; Chk ([Dq8]::DAQmxStartTask($do)) "iniciar DO"
+  Chk ([Dq8]::DAQmxWriteAnalogScalarF64($ao, 1, 1.0, $Vao, [IntPtr]::Zero)) "AO"
+  Chk ([Dq8]::DAQmxWriteDigitalLines($do, 1, 1, 1.0, 0, [byte[]]@(0, 0), [ref]$w, [IntPtr]::Zero)) "DO"
+  $bitsOn = [byte[]]@(0, 0); $bitsOn[$Linea] = 1
+  $rows = New-Object System.Collections.Generic.List[string]; $rows.Add("t,ang,on")
+  $tOn0 = 0.3; $on = 0; $done = $false; $v = 0.0
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  while ($sw.Elapsed.TotalSeconds -lt $TTot) {
+    $t = $sw.Elapsed.TotalSeconds
+    if ($on -eq 0 -and -not $done -and $t -ge $tOn0) { [void][Dq8]::DAQmxWriteDigitalLines($do, 1, 1, 1.0, 0, $bitsOn, [ref]$w, [IntPtr]::Zero); $on = 1 }
+    if ($on -eq 1 -and $t -ge $tOn0 + $TOn) { [void][Dq8]::DAQmxWriteDigitalLines($do, 1, 1, 1.0, 0, [byte[]]@(0, 0), [ref]$w, [IntPtr]::Zero); $on = 0; $done = $true }
+    [void][Dq8]::DAQmxReadCounterScalarF64($ci, 1.0, [ref]$v, [IntPtr]::Zero)
+    $rows.Add([string]::Format($ic, "{0:F4},{1:F3},{2}", $t, $v, $on))
+  }
+} finally {
+  if ($do -ne [IntPtr]::Zero) { [void][Dq8]::DAQmxWriteDigitalLines($do, 1, 1, 1.0, 0, [byte[]]@(0, 0), [ref]$w, [IntPtr]::Zero); [void][Dq8]::DAQmxClearTask($do) }
+  if ($ao -ne [IntPtr]::Zero) { [void][Dq8]::DAQmxWriteAnalogScalarF64($ao, 1, 1.0, 5.0, [IntPtr]::Zero); [void][Dq8]::DAQmxClearTask($ao) }
+  if ($ci -ne [IntPtr]::Zero) { [void][Dq8]::DAQmxClearTask($ci) }
+}
+if ($Out -ne "") { Set-Content -Path $Out -Value $rows -Encoding ascii }
+# Resumen
+$data = $rows | Select-Object -Skip 1 | ForEach-Object { $p = $_.Split(','); [pscustomobject]@{ t = [double]::Parse($p[0], $ic); a = [double]::Parse($p[1], $ic); on = [int]$p[2] } }
+$n = $data.Count; $dt = ($data[$n-1].t - $data[0].t) / [Math]::Max(1, $n - 1)
+$first = $data | Where-Object { $_.t -ge 0.3 -and [Math]::Abs($_.a) -gt 0.3 } | Select-Object -First 1
+$ext = ($data | Measure-Object -Property a -Minimum -Maximum)
+"muestras = $n   dt medio = {0:F2} ms" -f ($dt * 1000)
+if ($first) { "primer movimiento (>0,3 grados) a {0:F3} s del encendido" -f ($first.t - 0.3) } else { "la varilla no se movio mas de 0,3 grados" }
+"angulo min = {0:F2}  max = {1:F2} grados (relativo al inicio)" -f $ext.Minimum, $ext.Maximum

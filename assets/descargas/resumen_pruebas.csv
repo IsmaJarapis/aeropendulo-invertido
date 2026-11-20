@@ -1,0 +1,9 @@
+﻿prueba;cambio;rms_grados;min_grados;max_grados;porcentaje_dentro_de_2_grados
+1;Kp 2, Kd 0,9, Kv 3,5, filtro 20 ms;2.74;-5.5;4.8;37
+2;Kp 3, Kd 0,6, Kv 3,5, filtro 20 ms;5.11;-10.2;8.0;20
+3;Kv 1,0, filtro 20 ms;2.61;-6.0;5.0;51
+4;Kv 0,6, filtro 20 ms;2.43;-4.9;5.6;51
+5;Kv 0,35, filtro 20 ms;2.78;-3.6;8.1;48
+6;Kv 0,6, Kd 1,2, filtro 20 ms;2.55;-4.9;5.6;52
+7;Kv 0,6, filtro 10 ms;1.44;-1.5;4.5;85
+8;Kv 0,6, filtro 5 ms (FINAL);0.88;-1.2;2.3;99

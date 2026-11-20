@@ -1,0 +1,101 @@
+param(
+  [double]$Tope = -70.5,                                        # angulo donde arranca la varilla (en el tope), en grados
+  [double]$Kp = 2.0, [double]$Ki = 0.4, [double]$Kd = 0.9,       # I-PD de equilibrio (prueba 8/10)
+  [double]$Kv = 0.6, [double]$Voff = 0.2, [double]$Vmax = 5.0, [double]$Umax = 1.1396, [double]$TauD = 0.005,
+  [double]$VLift = 5.0,                                          # empuje de subida (5 = maximo, AO 0 V con PWM invertido)
+  [double]$ThCut = 30, [double]$ThCatch = 12, [double]$ThLost = 35,  # grados: cortar empuje, atrapar con PID, perder
+  [double]$Periodo = 0.002, [double]$Dur = 20,
+  [int]$Inv = 1, [int]$Pinv = 1, [string]$Out = "", [string]$Dev = "Dev10")
+# Swing up: sube la varilla desde el tope y la atrapa con el I-PD en la vertical.
+# Estados: 0 SUBIR (empuje maximo hacia la vertical) -> 1 PLANEAR (motores apagados) -> 2 ATRAPAR (I-PD).
+# Si en PLANEAR se devuelve, empuja mas la proxima vez (ThCut baja 4 grados). Si se pasa y se pierde, empuja menos (ThCut sube 4).
+$cs = @'
+using System; using System.Text; using System.Runtime.InteropServices; using System.Diagnostics; using System.Collections.Generic; using System.Globalization;
+public static class SwUp {
+  const string D = "nicaiu.dll";
+  [DllImport(D, CharSet=CharSet.Ansi)] static extern int DAQmxCreateTask(string name, out IntPtr task);
+  [DllImport(D, CharSet=CharSet.Ansi)] static extern int DAQmxCreateCIAngEncoderChan(IntPtr task, string counter, string name, int decoding, uint zEnable, double zVal, int zPhase, int units, uint ppr, double initAngle, string scale);
+  [DllImport(D, CharSet=CharSet.Ansi)] static extern int DAQmxSetCIEncoderAInputTerm(IntPtr task, string chan, string term);
+  [DllImport(D, CharSet=CharSet.Ansi)] static extern int DAQmxSetCIEncoderBInputTerm(IntPtr task, string chan, string term);
+  [DllImport(D)] static extern int DAQmxReadCounterScalarF64(IntPtr task, double timeout, out double value, IntPtr reserved);
+  [DllImport(D, CharSet=CharSet.Ansi)] static extern int DAQmxCreateAOVoltageChan(IntPtr t, string ch, string n, double min, double max, int units, string scale);
+  [DllImport(D)] static extern int DAQmxWriteAnalogScalarF64(IntPtr t, uint auto, double timeout, double v, IntPtr r);
+  [DllImport(D, CharSet=CharSet.Ansi)] static extern int DAQmxCreateDOChan(IntPtr t, string lines, string n, int grouping);
+  [DllImport(D)] static extern int DAQmxWriteDigitalLines(IntPtr t, int ns, uint auto, double timeout, uint layout, byte[] data, out int written, IntPtr r);
+  [DllImport(D)] static extern int DAQmxStartTask(IntPtr t);
+  [DllImport(D)] static extern int DAQmxClearTask(IntPtr t);
+  [DllImport(D, CharSet=CharSet.Ansi)] static extern int DAQmxGetExtendedErrorInfo(StringBuilder sb, uint size);
+  static string Err() { var sb = new StringBuilder(2048); DAQmxGetExtendedErrorInfo(sb, 2048); return sb.ToString(); }
+  static void Chk(int rc, string w) { if (rc != 0) throw new Exception(w + " -> " + rc + " " + Err()); }
+  public static string Run(string dev, double tope, double Kp, double Ki, double Kd, double Kv, double Voff, double Vmax, double Umax, double TauD,
+                           double vLift, double thCut, double thCatch, double thLost, double per, double dur, int inv, int pinv, string outFile) {
+    var ic = CultureInfo.InvariantCulture; var log = new List<string>(); log.Add("t,th,d,u,V,motor,estado,thcut");
+    var ev = new List<string>();
+    IntPtr ci = IntPtr.Zero, ao = IntPtr.Zero, dq = IntPtr.Zero; int w; byte[] off = new byte[] {0,0};
+    double k = Math.PI / 180; double tCatch = -1; int inBand = 0, nAfter = 0; double sumSq = 0, thMin = 1e9, thMax = -1e9;
+    try {
+      DAQmxCreateTask("", out ci);
+      Chk(DAQmxCreateCIAngEncoderChan(ci, dev + "/ctr0", "", 10092, 0, 0.0, 10040, 10146, 2000, tope, ""), "encoder");
+      DAQmxSetCIEncoderAInputTerm(ci, "", "/" + dev + "/PFI8"); DAQmxSetCIEncoderBInputTerm(ci, "", "/" + dev + "/PFI10");
+      Chk(DAQmxStartTask(ci), "start encoder");
+      DAQmxCreateTask("", out ao); Chk(DAQmxCreateAOVoltageChan(ao, dev + "/ao0", "", 0.0, 5.0, 10348, ""), "AO"); Chk(DAQmxStartTask(ao), "start AO");
+      DAQmxCreateTask("", out dq); Chk(DAQmxCreateDOChan(dq, dev + "/port0/line0:1", "", 0), "DO"); Chk(DAQmxStartTask(dq), "start DO");
+      DAQmxWriteDigitalLines(dq, 1, 1, 1.0, 0, off, out w, IntPtr.Zero);
+      var sw = Stopwatch.StartNew(); double tp = 0, thp = 0, d = 0, I = 0; int lastMotor = -1; bool first = true;
+      int estado = 0; double liftSide = Math.Sign(tope); int intentos = 1;
+      ev.Add(string.Format(ic, "0.00 s: SUBIR desde {0:F1} grados (corte en {1:F0})", tope, thCut));
+      while (true) {
+        double t = sw.Elapsed.TotalSeconds; if (t > dur) break;
+        double deg; DAQmxReadCounterScalarF64(ci, 1.0, out deg, IntPtr.Zero);
+        double th = deg * k; double h = first ? per : t - tp; if (h <= 0) h = per;
+        if (!first) { double a = Math.Exp(-h / TauD); d = a * d + (1 - a) * (th - thp) / h; }
+        double u = 0, V = 0; double ad = Math.Abs(deg);
+        if (estado == 0) {                       // SUBIR: empuje maximo hacia la vertical
+          u = (deg < 0 ? 1 : -1) * Umax; V = vLift;
+          if (ad <= thCut) { estado = 1; ev.Add(string.Format(ic, "{0:F2} s: PLANEAR en {1:F1} grados, vel {2:F0} grados/s", t, deg, d / k)); }
+        } else if (estado == 1) {                // PLANEAR: motores apagados, la inercia la lleva
+          u = 0; V = 0;
+          if (ad <= thCatch) { estado = 2; I = 0; ev.Add(string.Format(ic, "{0:F2} s: ATRAPAR en {1:F1} grados, vel {2:F0} grados/s", t, deg, d / k)); }
+          else if (deg * d > 0 && Math.Abs(d) > 0.05) {   // se devuelve hacia el tope: faltó empuje
+            thCut = Math.Max(thCatch + 3, thCut - 4); estado = 0; liftSide = Math.Sign(deg); intentos++;
+            ev.Add(string.Format(ic, "{0:F2} s: se devolvio en {1:F1} grados -> SUBIR otra vez, corte en {2:F0}", t, deg, thCut)); }
+        } else {                                 // ATRAPAR: I-PD de equilibrio
+          double err = 0 - th; double Itry = I + Ki * h * err;
+          double ut = Itry - Kp * th - Kd * d; u = Math.Max(-Umax, Math.Min(Umax, ut)); if (u == ut) I = Itry;
+          V = Math.Abs(u) > 0.01 ? Math.Min(Vmax, Voff + Kv * Math.Abs(u)) : 0;
+          if (tCatch < 0) tCatch = t;
+          if (ad > thLost) {                     // se perdio: si se paso al otro lado, empujar menos la proxima
+            if (Math.Sign(deg) != liftSide) thCut = Math.Min(60, thCut + 4);
+            estado = 0; liftSide = Math.Sign(deg); intentos++; tCatch = -1; inBand = 0; nAfter = 0; sumSq = 0; thMin = 1e9; thMax = -1e9;
+            ev.Add(string.Format(ic, "{0:F2} s: se perdio en {1:F1} grados -> SUBIR otra vez, corte en {2:F0}", t, deg, thCut)); }
+        }
+        int m1 = 0, m2 = 0;
+        if (V > 0 && Math.Abs(u) > 0.01) { if (u > 0) m1 = 1; else m2 = 1; }
+        if (inv != 0) { int tmp = m1; m1 = m2; m2 = tmp; }
+        if (ad > 80) { V = 0; m1 = 0; m2 = 0; }
+        if (m1 == 0 && m2 == 0) V = 0;
+        double aoV = (pinv != 0 && (m1 + m2) > 0) ? 5 - V : V;
+        DAQmxWriteAnalogScalarF64(ao, 1, 1.0, aoV, IntPtr.Zero);
+        int motor = m1 + 2 * m2;
+        if (motor != lastMotor) { DAQmxWriteDigitalLines(dq, 1, 1, 1.0, 0, new byte[] {(byte)m1, (byte)m2}, out w, IntPtr.Zero); lastMotor = motor; }
+        log.Add(string.Format(ic, "{0:F4},{1:F3},{2:F4},{3:F4},{4:F3},{5},{6},{7:F0}", t, deg, d, u, V, motor, estado, thCut));
+        if (estado == 2 && tCatch >= 0 && t > tCatch + 3) { nAfter++; sumSq += deg * deg; if (Math.Abs(deg) <= 2) inBand++; thMin = Math.Min(thMin, deg); thMax = Math.Max(thMax, deg); }
+        tp = t; thp = th; first = false;
+        while (sw.Elapsed.TotalSeconds - t < per) { }
+      }
+      ev.Add(string.Format(ic, "fin: {0} intento(s), estado final {1}", intentos, estado == 2 ? "SOSTENIDA" : (estado == 1 ? "planeando" : "subiendo")));
+    } finally {
+      if (dq != IntPtr.Zero) { DAQmxWriteDigitalLines(dq, 1, 1, 1.0, 0, off, out w, IntPtr.Zero); DAQmxClearTask(dq); }
+      if (ao != IntPtr.Zero) { DAQmxWriteAnalogScalarF64(ao, 1, 1.0, 5.0, IntPtr.Zero); DAQmxClearTask(ao); }
+      if (ci != IntPtr.Zero) DAQmxClearTask(ci);
+      if (outFile != "") System.IO.File.WriteAllLines(outFile, log);
+    }
+    string res = string.Join("\n", ev);
+    if (nAfter > 0) res += string.Format(ic, "\nsostenida, desde 3 s despues de atrapar: rms {0:F2} grados, min {1:F1}, max {2:F1}, dentro de +-2 grados {3:F0}%",
+      Math.Sqrt(sumSq / nAfter), thMin, thMax, 100.0 * inBand / nAfter);
+    return res;
+  }
+}
+'@
+if (-not ("SwUp" -as [type])) { Add-Type -TypeDefinition $cs }
+[SwUp]::Run($Dev, $Tope, $Kp, $Ki, $Kd, $Kv, $Voff, $Vmax, $Umax, $TauD, $VLift, $ThCut, $ThCatch, $ThLost, $Periodo, $Dur, $Inv, $Pinv, $Out)

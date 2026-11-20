@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gemelo Aeropéndulo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  /* Tablero de laboratorio: visor grande a la izquierda, panel tipo VI a la derecha, cadena de señal y gráficas abajo */
+  :root {
+    color-scheme: dark;
+    --bg: #101010; --panel: #171717; --panel2: #1e1e1e; --line: #2a2a2a; --line2: #333;
+    --fg: #f1efeb; --mut: #a3a09b; --dim: #6f6c68;
+    --org: #F46008; --org2: #ff8a3d; --teal: #19b3a6; --blue: #4aa3ff; --yel: #f2c230; --red: #ff4d4d; --grn: #3ddc84;
+    --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace; --sans: 'Inter', system-ui, sans-serif; --disp: 'Bebas Neue', 'Inter', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  body { padding-left: max(0px, env(safe-area-inset-left, 0px)); padding-right: max(0px, env(safe-area-inset-right, 0px)); }
+  button, input, select { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--org); outline-offset: 2px; }
+
+  header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: rgba(16,16,16,.95); border-bottom: 1px solid var(--line); backdrop-filter: blur(10px); }
+  header img { height: 34px; width: auto; }
+  .brand b { font-family: var(--disp); font-size: 24px; letter-spacing: 2px; font-weight: 400; }
+  .brand b span { color: var(--org); }
+  .brand small { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--mut); text-transform: uppercase; }
+  header .sp { flex: 1; }
+  header a.back { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; color: var(--mut); text-decoration: none; border: 1px solid var(--line2); padding: 7px 12px; border-radius: 6px; }
+  header a.back:hover { color: var(--fg); border-color: var(--org); }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 0; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+
+  /* ── visor ── */
+  .stage { position: relative; min-height: 560px; height: calc(100vh - 56px - 230px); background: radial-gradient(ellipse at 50% 30%, #23211f 0%, #121212 70%); border-right: 1px solid var(--line); overflow: hidden; touch-action: none; }
+  @media (max-width: 1000px) { .stage { height: 62vh; min-height: 420px; border-right: 0; } }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  #c2d { position: absolute; inset: 0; }
+  #c3d { position: absolute; inset: 0; }
+  .tabs { position: absolute; top: 14px; left: 14px; z-index: 5; display: flex; gap: 6px; }
+  .tabs button { background: rgba(20,20,20,.85); color: var(--mut); border: 1px solid var(--line2); border-radius: 6px; padding: 7px 12px; font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; cursor: pointer; }
+  .tabs button.on { color: var(--bg); background: var(--org); border-color: var(--org); font-weight: 700; }
+  .hud { position: absolute; top: 14px; right: 14px; z-index: 5; display: grid; grid-template-columns: auto auto; gap: 4px 14px; background: rgba(16,16,16,.82); border: 1px solid var(--line2); border-radius: 10px; padding: 12px 14px; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .hud span { color: var(--mut); } .hud strong { text-align: right; font-weight: 600; }
+  .hud .estado { grid-column: 1 / -1; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line2); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+  .hint { position: absolute; left: 14px; bottom: 14px; z-index: 5; max-width: 440px; font-size: 12.5px; color: var(--mut); background: rgba(16,16,16,.8); border: 1px solid var(--line2); border-radius: 8px; padding: 9px 12px; line-height: 1.45; }
+  .hint b { color: var(--fg); }
+  .playbar { position: absolute; right: 14px; bottom: 14px; z-index: 5; display: flex; gap: 6px; }
+  .playbar button { background: rgba(20,20,20,.88); color: var(--fg); border: 1px solid var(--line2); border-radius: 8px; padding: 9px 13px; font-size: 13px; cursor: pointer; }
+  .playbar button:hover { border-color: var(--org); }
+  .push { display: flex; gap: 6px; }
+
+  /* ── panel tipo VI ── */
+  aside { background: var(--panel); overflow-y: auto; height: calc(100vh - 56px - 230px); min-height: 560px; }
+  @media (max-width: 1000px) { aside { height: auto; min-height: 0; } }
+  .sec { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .sec h2 { margin: 0 0 4px; font-family: var(--mono); font-size: 11px; letter-spacing: 2.5px; color: var(--org); text-transform: uppercase; font-weight: 700; }
+  .sec p.lead { margin: 0 0 12px; font-size: 12.5px; color: var(--mut); line-height: 1.5; }
+  .scen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .scen button { text-align: left; background: var(--panel2); border: 1px solid var(--line2); color: var(--fg); border-radius: 9px; padding: 10px 11px; cursor: pointer; font-size: 13px; font-weight: 600; line-height: 1.25; }
+  .scen button small { display: block; font-weight: 400; color: var(--mut); font-size: 11.5px; margin-top: 4px; }
+  .scen button:hover, .scen button.on { border-color: var(--org); background: #23190f; }
+  .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tg { display: flex; align-items: center; gap: 9px; background: var(--panel2); border: 1px solid var(--line2); border-radius: 9px; padding: 9px 10px; cursor: pointer; user-select: none; }
+  .tg input { display: none; }
+  .tg .led { width: 14px; height: 14px; border-radius: 50%; background: #333; box-shadow: inset 0 0 0 2px #222; flex: none; }
+  .tg input:checked + .led { background: var(--grn); box-shadow: 0 0 10px var(--grn); }
+  .tg b { font-size: 12.5px; font-weight: 600; } .tg small { display: block; font-size: 11px; color: var(--mut); }
+  .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .btn { background: var(--panel2); border: 1px solid var(--line2); color: var(--fg); border-radius: 9px; padding: 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .btn:hover { border-color: var(--org); }
+  .btn.stop { background: #3a1212; border-color: #6a2020; color: #ffb3b3; }
+  .ctl { margin-bottom: 13px; }
+  .ctl .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .ctl label { font-size: 13px; font-weight: 600; }
+  .ctl output { font-family: var(--mono); font-size: 13px; color: var(--org2); font-variant-numeric: tabular-nums; }
+  .ctl small { display: block; color: var(--mut); font-size: 11.5px; line-height: 1.4; margin: 3px 0 6px; }
+  input[type=range] { width: 100%; accent-color: var(--org); }
+  details summary { cursor: pointer; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--mut); text-transform: uppercase; }
+  details[open] summary { color: var(--org); margin-bottom: 12px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .seg button { background: var(--panel2); border: 1px solid var(--line2); color: var(--mut); border-radius: 7px; padding: 7px; font-size: 12px; cursor: pointer; }
+  .seg button.on { border-color: var(--org); color: var(--fg); }
+  .warn { margin-top: 10px; font-size: 12px; line-height: 1.45; color: #ffd8b8; background: #2a1a0e; border: 1px solid #5a3415; border-radius: 8px; padding: 9px 11px; }
+
+  /* ── cadena de señal ── */
+  .chain { border-top: 1px solid var(--line); background: #131313; padding: 14px 18px 16px; }
+  .chain h2, .graphs h2 { margin: 0 0 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 2.5px; color: var(--org); text-transform: uppercase; }
+  .blocks { display: grid; grid-template-columns: repeat(6, minmax(150px, 1fr)); gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .blk { position: relative; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 10px 8px; min-width: 150px; }
+  .blk::after { content: "→"; position: absolute; right: -8px; top: 50%; transform: translate(50%, -50%); color: var(--org); font-weight: 700; z-index: 2; }
+  .blk:last-child::after { display: none; }
+  .blk h3 { margin: 0; font-size: 12px; font-weight: 700; }
+  .blk .sub { font-size: 10.5px; color: var(--mut); margin: 2px 0 6px; line-height: 1.3; min-height: 28px; }
+  .blk canvas { width: 100%; height: 58px; display: block; background: #0d0d0d; border-radius: 6px; }
+  .blk .val { margin-top: 5px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--fg); }
+  .blk .val i { font-style: normal; color: var(--mut); }
+
+  .graphs { padding: 14px 18px 22px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 1000px) { .graphs { grid-template-columns: 1fr; } }
+  .gcard { background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; padding: 10px; }
+  .gcard h3 { margin: 0 0 6px; font-size: 12px; font-weight: 700; }
+  .gcard h3 small { color: var(--mut); font-weight: 400; }
+  .gcard canvas { width: 100%; height: 190px; display: block; }
+  .note { padding: 0 18px 26px; color: var(--dim); font-size: 12px; line-height: 1.55; max-width: 1100px; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<header>
+  <img src="assets/marca/jarapis_j.png" alt="Logo de Jarapis Lab">
+  <div class="brand"><b>JARAPIS <span>LAB</span></b><small>Gemelo digital · aeropéndulo invertido</small></div>
+  <div class="sp"></div>
+  <a class="back" href="index.html" target="_top">← SITIO</a>
+</header>
+
+<main>
+  <section class="stage" id="stage" aria-label="Visor del péndulo">
+    <canvas id="c3d"></canvas>
+    <canvas id="c2d" hidden></canvas>
+    <div class="tabs" role="tablist">
+      <button id="tab3d" class="on" role="tab">3D</button>
+      <button id="tab2d" role="tab">2D FRENTE</button>
+      <button id="tabcam" role="tab" title="Cambia el encuadre de la cámara 3D">ENCUADRE</button>
+    </div>
+    <div class="hud" aria-live="off">
+      <span>tiempo</span><strong id="h_t">0,00 s</strong>
+      <span>ángulo θ</span><strong id="h_th">0,00°</strong>
+      <span>voltaje AO</span><strong id="h_v">0,00 V</strong>
+      <span>motor activo</span><strong id="h_m">—</strong>
+      <span>empuje</span><strong id="h_f">0 mN</strong>
+      <div class="estado" id="h_est">—</div>
+    </div>
+    <div class="hint" id="hint"><b>Arrastra la varilla</b> con el mouse o el dedo para empujarla, o usa las flechas ← → del teclado para darle un golpe. El controlador corre igual que el VI de LabVIEW.</div>
+    <div class="playbar">
+      <div class="push"><button id="pushL" title="Golpe hacia la izquierda">◀ golpe</button><button id="pushR" title="Golpe hacia la derecha">golpe ▶</button></div>
+      <button id="play" title="Pausar o reanudar">❚❚</button>
+      <button id="slow" title="Velocidad de reproducción">1×</button>
+    </div>
+  </section>
+
+  <aside>
+    <div class="sec">
+      <h2>1 · Prueba guiada</h2>
+      <p class="lead">Elige una situación. Cada botón prepara la planta y el panel como lo harías en el laboratorio.</p>
+      <div class="scen" id="scen">
+        <button data-s="swingI">Swing up desde el tope izquierdo<small>Sube sola, planea y la atrapa el I-PD</small></button>
+        <button data-s="swingD">Swing up desde el tope derecho<small>El mismo arranque desde el otro lado</small></button>
+        <button data-s="auto">Vertical: sostener y soltar<small>VI final: Kp 2 · Ki 0,4 · Kd 0,9 · Kv 0,6</small></button>
+        <button data-s="tara20">Tarar inclinada a 20°<small>El cero queda donde está la varilla al dar Run</small></button>
+        <button data-s="libre">Soltar sin control<small>Motores apagados: cae hasta el tope</small></button>
+        <button data-s="golpe">Rechazo de un golpe<small>Equilibrada y recibe un toque a los 2 s</small></button>
+        <button data-s="original">VI antes del ajuste<small>Lazo 10,5 ms · derivativo ~40 ms · Kv 3,5</small></button>
+        <button data-s="externo">Control externo 2 ms<small>Como la prueba 8 (0,88° rms)</small></button>
+        <button data-s="manual">Motor manual<small>Enciende un motor con voltaje fijo</small></button>
+        <button data-s="grande">Inclinación de 12°<small>Recuperación desde lejos</small></button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>2 · Botones del VI</h2>
+      <p class="lead">Los mismos interruptores del panel frontal de LabVIEW.</p>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="en" checked><span class="led"></span><span><b>Habilitar motores</b><small>Sin esto, 0 V siempre</small></span></label>
+        <label class="tg"><input type="checkbox" id="autom" checked><span class="led"></span><span><b>Modo automático</b><small>I-PD activo</small></span></label>
+        <label class="tg"><input type="checkbox" id="inv" checked><span class="led"></span><span><b>Invertir sentido</b><small>Intercambia qué motor prende</small></span></label>
+        <label class="tg"><input type="checkbox" id="pinv" checked><span class="led"></span><span><b>PWM invertido</b><small>AO = 5 − V (0 V = máximo)</small></span></label>
+        <label class="tg"><input type="checkbox" id="ruido"><span class="led"></span><span><b>Ruido de medida</b><small>±0,1° en el encoder</small></span></label>
+        <label class="tg"><input type="checkbox" id="turb" checked><span class="led"></span><span><b>Turbulencia</b><small>Aire de las hélices</small></span></label>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="tarar" title="Fija el cero del encoder en la posición actual">Tarar (cero aquí)</button>
+        <button class="btn stop" id="alto" title="Apaga motores y reinicia la integral">STOP</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>3 · Modo de arranque</h2>
+      <p class="lead">El mismo selector del VI. En swing up la varilla parte del tope: sube con empuje máximo, apaga los motores en el ángulo de corte para que planee y el I-PD la atrapa a 12° de la vertical. Si se aleja más de 35°, vuelve a subir.</p>
+      <div class="ctl"><div class="seg" id="swing" style="grid-template-columns:1fr 1fr 1fr"><button data-v="0" class="on">Vertical</button><button data-v="1">Tope izquierdo</button><button data-v="2">Tope derecho</button></div></div>
+      <div class="ctl"><div class="top"><label for="thcut">Corte · ángulo donde se apaga el empuje</label><output id="o_thcut"></output></div><small>45° funcionó en la planta. Si se pasa al otro lado, súbelo; si no alcanza a llegar, bájalo.</small><input type="range" id="thcut" min="20" max="65" step="1" value="45"></div>
+    </div>
+
+    <div class="sec">
+      <h2>4 · Controlador I-PD</h2>
+      <p class="lead">u = I − Kp·θ − Kd·d, con I = ∫Ki·e dt y d la velocidad con filtro de 5 ms. El signo de u elige el motor y V = Voff + Kv·|u| su potencia. Ganancias por radián, igual que en el Formula Node del VI.</p>
+      <div class="ctl"><div class="top"><label for="Kp">Kp · proporcional</label><output id="o_Kp"></output></div><small>Qué tan fuerte empuja según cuánto está inclinada. Muy alto: oscila.</small><input type="range" id="Kp" min="0" max="10" step="0.01" value="2"></div>
+      <div class="ctl"><div class="top"><label for="Ki">Ki · integral</label><output id="o_Ki"></output></div><small>Centra la varilla (corrige el desbalance entre motores). Sin Ki queda recostada.</small><input type="range" id="Ki" min="0" max="2" step="0.01" value="0.4"></div>
+      <div class="ctl"><div class="top"><label for="Kd">Kd · derivativo</label><output id="o_Kd"></output></div><small>Frena el movimiento según la velocidad. El punto dulce en la planta fue 0,9.</small><input type="range" id="Kd" min="0" max="2" step="0.01" value="0.9"></div>
+      <div class="ctl"><div class="top"><label for="Kv">Kv · ganancia del actuador</label><output id="o_Kv"></output></div><small>V = Voff + Kv·|u|. Los motores son casi todo/nada: Kv bajo da correcciones suaves.</small><input type="range" id="Kv" min="0" max="5" step="0.05" value="0.6"></div>
+      <div class="ctl"><div class="top"><label for="TauD">Filtro del derivativo</label><output id="o_TauD"></output></div><small>5 ms en el VI final. Con ~40 ms (el cálculo original) el control frena tarde y oscila.</small><input type="range" id="TauD" min="1" max="50" step="1" value="5"></div>
+      <div class="ctl"><div class="top"><label>Período del lazo</label><output id="o_Ts">6,6 ms</output></div><small>Lo limitan los DAQ Assistant. El programa externo con DAQmx corre a 2 ms.</small>
+        <div class="seg" id="Ts" style="grid-template-columns:1fr 1fr 1fr"><button data-v="0.002">2 ms</button><button data-v="0.0066" class="on">6,6 ms</button><button data-v="0.0105">10,5 ms</button></div></div>
+      <div class="ctl"><div class="top"><label for="ref">Referencia</label><output id="o_ref"></output></div><small>Ángulo que se le pide a la varilla (0° = vertical).</small><input type="range" id="ref" min="-10" max="10" step="0.5" value="0"></div>
+      <div class="ctl"><div class="top"><label for="Voff">Voff · arranque del motor</label><output id="o_Voff"></output></div><small>Voltaje mínimo cuando un motor se enciende.</small><input type="range" id="Voff" min="0" max="3" step="0.05" value="0.2"></div>
+      <div class="ctl"><div class="top"><label for="Vmax">Vmax AO</label><output id="o_Vmax"></output></div><small>Tope del voltaje que pide el control.</small><input type="range" id="Vmax" min="0.5" max="5" step="0.05" value="5"></div>
+      <div class="ctl"><div class="top"><label for="angmax">Ángulo límite de seguridad</label><output id="o_angmax"></output></div><small>Si el error lo supera, el VI apaga los motores. En el VI final es 90°.</small><input type="range" id="angmax" min="5" max="90" step="1" value="90"></div>
+      <div class="ctl"><div class="top"><label>Motor manual</label><output id="o_sel">1</output></div><small>Solo con Modo automático apagado. Cada motor sopla hacia afuera.</small>
+        <div class="seg" id="sel"><button data-v="1" class="on">1 · derecho (empuja ←)</button><button data-v="2">2 · izquierdo (empuja →)</button></div></div>
+      <div class="ctl"><div class="top"><label for="Vman">Voltaje manual</label><output id="o_Vman"></output></div><small>Voltaje pedido antes de invertir el PWM (la AO queda en 5 − V).</small><input type="range" id="Vman" min="0" max="5" step="0.05" value="0.5"></div>
+    </div>
+
+    <div class="sec">
+      <details>
+        <summary>5 · Planta física (avanzado)</summary>
+        <div class="ctl"><div class="top"><label for="tope">Ángulo de los topes (promedio)</label><output id="o_tope"></output></div><small>Medidos con el encoder: izquierdo −70,7° y derecho +69,85°. El VI usa esos dos valores para hallar la vertical en el swing up.</small><input type="range" id="tope" min="10" max="85" step="0.05" value="70.275"></div>
+        <div class="ctl"><div class="top"><label for="Tmax">Torque de saturación de un motor</label><output id="o_Tmax"></output></div><small>Ajustado a los ensayos de escalón (44–47 mN·m) y a los dos swing up reales. El izquierdo da ≈ 5 % más.</small><input type="range" id="Tmax" min="10" max="80" step="1" value="44"></div>
+        <div class="ctl"><div class="top"><label for="tau">τm · constante del motor-hélice</label><output id="o_tau"></output></div><small>Medido: 0,02–0,04 s (el informe suponía 0,1 s).</small><input type="range" id="tau" min="0.01" max="0.3" step="0.01" value="0.03"></div>
+        <div class="ctl"><div class="top"><label for="ret">Retardo puro</label><output id="o_ret"></output></div><small>Medido: 0 a 0,02 s en los ensayos de escalón.</small><input type="range" id="ret" min="0" max="0.05" step="0.005" value="0.01"></div>
+        <div class="ctl"><div class="top"><label for="bfr">b · fricción del pivote</label><output id="o_bfr"></output></div><small>Sin medir todavía.</small><input type="range" id="bfr" min="0" max="0.002" step="0.00005" value="0.0002"></div>
+        <div id="recup" class="warn"></div>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<section class="chain" aria-label="Cadena de señal en vivo">
+  <h2>Cadena de señal en vivo · del computador a la varilla</h2>
+  <div class="blocks">
+    <div class="blk"><h3>LabVIEW · I-PD</h3><div class="sub">Calcula u y pide V = Voff + Kv·|u|; manda AO = 5 − V</div><canvas id="b_lv"></canvas><div class="val" id="v_lv">u = 0</div></div>
+    <div class="blk"><h3>DAQ NI USB-6212</h3><div class="sub">ao0 entrega 0–5 V · line0 = derecho, line1 = izquierdo</div><canvas id="b_daq"></canvas><div class="val" id="v_daq">AO 0,00 V</div></div>
+    <div class="blk"><h3>Comparador LM324</h3><div class="sub">Sierra 0–5 V a 100 Hz vs. AO → PWM invertido</div><canvas id="b_cmp"></canvas><div class="val" id="v_cmp">ciclo útil 0 %</div></div>
+    <div class="blk"><h3>Puente H L298N</h3><div class="sub">EN = PWM · IN = línea digital del motor</div><canvas id="b_hb"></canvas><div class="val" id="v_hb">—</div></div>
+    <div class="blk"><h3>Motores + hélices</h3><div class="sub">Casi todo/nada: 17–47 mN·m por motor</div><canvas id="b_mot"></canvas><div class="val" id="v_mot">0 mN·m</div></div>
+    <div class="blk"><h3>Encoder 2000 P/R</h3><div class="sub">Canales A/B en cuadratura → ctr0 (PFI8, PFI10)</div><canvas id="b_enc"></canvas><div class="val" id="v_enc">0 cuentas</div></div>
+  </div>
+</section>
+
+<section class="graphs" aria-label="Gráficas">
+  <div class="gcard"><h3>Ángulo vs. referencia <small>y banda de ±2°</small></h3><canvas id="g_th"></canvas></div>
+  <div class="gcard"><h3>Salida del control u <small>(V equivalentes)</small></h3><canvas id="g_u"></canvas></div>
+  <div class="gcard"><h3>Voltaje a la AO y motor activo</h3><canvas id="g_v"></canvas></div>
+</section>
+<p class="note">Modelo no lineal calibrado con nuestras mediciones: I = 1,14×10⁻³ kg·m², K = 0,0461 N·m/rad y torque de cada motor T = 44·(1 − e<sup>−V/0,35</sup>) + 2,6·V mN·m. La curva se ajustó a los ensayos de escalón (44–47 mN·m) y a los dos swing up reales: el gemelo sigue esas dos subidas con ≈ 1,5° de error. Además: τm = 0,03 s, retardo de 0,01 s, topes medidos con el encoder (−70,7° y +69,85°) y turbulencia del aire. El controlador es la traducción literal del Formula Node final, con el swing up incluido: I-PD con derivativo filtrado a 5 ms, actuador lineal V = Voff + Kv·|u|, PWM invertido (AO = 5 − V), un solo motor a la vez y la máquina de estados sube → planea → sostiene. Con el lazo de 2 ms reproduce la prueba 8 (0,88° rms real, ≈ 0,9° en el gemelo). Con el VI a 6,6 ms el gemelo es optimista: da ≈ 1,1° rms, contra 2,3° medidos en la planta. La fricción b sigue sin medir.</p>
+
+<script src="gemelo-core.js?v=19nov4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+  const G = window.Gemelo, DEG = G.DEG, RAD = G.RAD;
+  const $ = id => document.getElementById(id);
+  const fmt = (v, d = 2) => (+v).toFixed(d).replace('.', ',');
+  const sim = G.crearReal();
+  const RUIDO = G.PLANTA_REAL.ruido;
+  const GRABAR = new URLSearchParams(location.search).has('grabar');
+  let running = true, speed = 1, view = '3d', hist = [], lastWall = performance.now();
+
+  /* ───────── panel ───────── */
+  const sliders = { Kp: [2, ''], Ki: [2, ''], Kd: [2, ''], Kv: [2, ''], TauD: [0, ' ms'], ref: [1, '°'], Voff: [2, ' V'], Vmax: [2, ' V'], angmax: [0, '°'], Vman: [2, ' V'],
+                    tope: [2, '°'], thcut: [0, '°'], Tmax: [0, ' mN·m'], tau: [2, ' s'], ret: [3, ' s'], bfr: [5, ''] };
+  function readPanel() {
+    const v = sim.v, p = sim.p;
+    v.Kp = +$('Kp').value; v.Ki = +$('Ki').value; v.Kd = +$('Kd').value; v.Kv = +$('Kv').value; v.TauD = +$('TauD').value / 1000; v.ref = +$('ref').value;
+    v.Voff = +$('Voff').value; v.Vmax = +$('Vmax').value; v.angmax = +$('angmax').value; v.Vman = +$('Vman').value;
+    v.en = $('en').checked ? 1 : 0; v.autom = $('autom').checked ? 1 : 0; v.inv = $('inv').checked ? 1 : 0; v.pinv = $('pinv').checked ? 1 : 0;
+    p.tope = +$('tope').value; p.topeIzq = p.tope + 0.425; p.topeDer = p.tope - 0.425; v.thcut = +$('thcut').value; p.Tmax = +$('Tmax').value / 1000; p.tau = +$('tau').value; p.retardo = +$('ret').value; p.b = +$('bfr').value;
+    p.ruido = $('turb').checked ? RUIDO : 0;
+    sim.ruidoMed = $('ruido').checked ? 0.1 : 0;
+    for (const k in sliders) if (k !== 'tope') $('o_' + k).textContent = fmt($(k).value, sliders[k][0]) + sliders[k][1];
+    const ar = sim.anguloRecuperable(), grav = p.K * Math.sin(p.tope * DEG);
+    $('o_tope').textContent = '−' + fmt(p.topeIzq, 2) + '° / +' + fmt(p.topeDer, 2) + '°';
+    $('recup').innerHTML = `Con Vmax = ${fmt(v.Vmax)} V el motor derecho da <b>${fmt(sim.torqueMax() * 1000, 1)} mN·m</b> y el izquierdo ≈ 5 % más. En el tope (${fmt(p.tope, 0)}°) la gravedad pide <b>${fmt(grav * 1000, 1)} mN·m</b>: ` +
+      (ar < p.tope ? `los motores <b>no alcanzan</b> a levantarla (solo hasta θ ≈ ${fmt(ar, 0)}°).` : `apenas alcanza, como en los ensayos de escalón (subidas de 2° a 40° según el motor y el voltaje).`);
+  }
+  document.querySelectorAll('aside input').forEach(el => el.addEventListener('input', readPanel));
+  $('sel').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; sim.v.sel = +b.dataset.v; $('o_sel').textContent = b.dataset.v; [...$('sel').children].forEach(x => x.classList.toggle('on', x === b)); });
+  function setTs(val) { sim.v.Ts = +val; $('o_Ts').textContent = fmt(val * 1000, val < 0.005 ? 0 : 1) + ' ms'; [...$('Ts').children].forEach(x => x.classList.toggle('on', +x.dataset.v === +val)); }
+  $('Ts').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTs(b.dataset.v); });
+  // Modo de arranque: cambiarlo equivale a dar Run otra vez en el VI
+  function setSwing(val, run = true) { sim.v.swing = +val; [...$('swing').children].forEach(x => x.classList.toggle('on', +x.dataset.v === +val)); if (run) { sim.reset(0); hist = []; } }
+  $('swing').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { setSwing(b.dataset.v); readPanel(); } });
+  $('tarar').onclick = () => { sim.ctl.tarar = 1; };
+  $('alto').onclick = () => { $('en').checked = false; sim.ctl.I = 0; readPanel(); };
+
+  function set(id, v) { const el = $(id); if (el.type === 'checkbox') el.checked = !!v; else el.value = v; }
+  // valores del VI final (17-nov) para restaurar el panel
+  const FINAL = () => { setSwing(0, false); set('thcut', 45); set('Kp', 2); set('Ki', 0.4); set('Kd', 0.9); set('Kv', 0.6); set('TauD', 5); set('Voff', 0.2); set('Vmax', 5); set('angmax', 90); set('inv', 1); set('pinv', 1); setTs(0.0066); };
+  const SCEN = {
+    swingI:   () => { FINAL(); setSwing(1, false); set('en', 1); set('autom', 1); readPanel(); sim.reset(0); },
+    swingD:   () => { FINAL(); setSwing(2, false); set('en', 1); set('autom', 1); readPanel(); sim.reset(0); },
+    tara20:   () => { FINAL(); set('en', 1); set('autom', 1); sim.reset(20, { run: true }); },
+    auto:     () => { FINAL(); set('en', 1); set('autom', 1); sim.reset(2); },
+    libre:    () => { set('en', 0); set('autom', 1); sim.reset(1); },
+    golpe:    () => { FINAL(); set('en', 1); set('autom', 1); sim.reset(0); setTimeout(() => sim.golpe(3e-4), 2000 / speed); },
+    original: () => { FINAL(); set('Kv', 3.5); set('TauD', 40); setTs(0.0105); set('en', 1); set('autom', 1); sim.reset(2); },
+    externo:  () => { FINAL(); setTs(0.002); set('en', 1); set('autom', 1); sim.reset(2); },
+    manual:   () => { set('en', 1); set('autom', 0); sim.reset(0); },
+    grande:   () => { FINAL(); set('en', 1); set('autom', 1); sim.reset(12); },
+  };
+  $('scen').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...$('scen').children].forEach(x => x.classList.toggle('on', x === b));
+    SCEN[b.dataset.s](); hist = []; readPanel();
+  });
+
+  /* ───────── controles del visor ───────── */
+  $('play').onclick = () => { running = !running; $('play').textContent = running ? '❚❚' : '▶'; };
+  const speeds = [1, 0.5, 0.25, 2]; let si = 0;
+  $('slow').onclick = () => { si = (si + 1) % speeds.length; speed = speeds[si]; $('slow').textContent = (speed < 1 ? speed.toString().replace('.', ',') : speed) + '×'; };
+  $('pushL').onclick = () => sim.golpe(-3e-4);
+  $('pushR').onclick = () => sim.golpe(3e-4);
+  window.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') sim.golpe(-3e-4); if (e.key === 'ArrowRight') sim.golpe(3e-4); if (e.key === ' ' && e.target === document.body) { e.preventDefault(); $('play').click(); } });
+  $('tab3d').onclick = () => setView('3d'); $('tab2d').onclick = () => setView('2d');
+  function setView(v) { view = v; $('tab3d').classList.toggle('on', v === '3d'); $('tab2d').classList.toggle('on', v === '2d'); $('c3d').hidden = v !== '3d'; $('c2d').hidden = v !== '2d'; $('tabcam').hidden = v !== '3d'; resize(); }
+
+  /* ───────── vista 2D con la silueta real (CAD) ───────── */
+  const c2 = $('c2d'), g2 = c2.getContext('2d'); let SIL = null;
+  fetch('assets/cad/pendulo_2d.json').then(r => r.json()).then(j => { SIL = j; }).catch(() => {});
+  function poly(ctx, ring) { ctx.moveTo(ring[0][0], ring[0][1]); for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i][0], ring[i][1]); ctx.closePath(); }
+  function draw2D() {
+    const W = c2.width, H = c2.height, dpr = window.devicePixelRatio || 1;
+    g2.setTransform(1, 0, 0, 1, 0, 0); g2.clearRect(0, 0, W, H);
+    const bgG = g2.createLinearGradient(0, 0, 0, H); bgG.addColorStop(0, '#e9ecf0'); bgG.addColorStop(1, '#cfd4da');
+    g2.fillStyle = bgG; g2.fillRect(0, 0, W, H);
+    if (!SIL) return;
+    const s = Math.min(W / 260, H / 560), cx = W / 2, by = H - 24 * dpr;     // mm → px
+    const pv = SIL.pivote, th = sim.th;
+    g2.setTransform(s, 0, 0, -s, cx, by);
+    // mesa
+    g2.fillStyle = '#9aa1a9'; g2.fillRect(-400, -30, 800, 30);
+    g2.fillStyle = '#7d848c'; g2.fillRect(-400, -1.5, 800, 1.5);
+    // banda ±2° y topes
+    const L = 300;
+    g2.save(); g2.translate(pv[0], pv[1]);
+    g2.fillStyle = 'rgba(25,179,166,.16)'; g2.beginPath(); g2.moveTo(0, 0); g2.arc(0, 0, L, Math.PI / 2 - 2 * DEG, Math.PI / 2 + 2 * DEG); g2.closePath(); g2.fill();
+    g2.strokeStyle = 'rgba(25,179,166,.7)'; g2.lineWidth = 0.8;
+    for (const a of [2, -2]) { g2.beginPath(); g2.moveTo(0, 0); g2.lineTo(L * Math.sin(a * DEG), L * Math.cos(a * DEG)); g2.stroke(); }
+    g2.strokeStyle = 'rgba(244,96,8,.55)'; g2.setLineDash([4, 4]); g2.lineWidth = 1;
+    for (const a of [(sim.p.topeDer ?? sim.p.tope) * DEG, -(sim.p.topeIzq ?? sim.p.tope) * DEG]) { g2.beginPath(); g2.moveTo(0, 0); g2.lineTo(260 * Math.sin(a), 260 * Math.cos(a)); g2.stroke(); }
+    g2.setLineDash([]); g2.restore();
+    const drawPart = (pt) => {
+      g2.beginPath(); for (const r of pt.rings) poly(g2, r);
+      const c = pt.color; const lum = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+      const col = pt.kind === 'Varilla' ? 'rgb(24,24,26)' : lum < 30 ? 'rgb(30,30,32)' : `rgb(${c[0]},${c[1]},${c[2]})`;
+      g2.fillStyle = col; g2.fill('evenodd');
+      g2.strokeStyle = 'rgba(0,0,0,.55)'; g2.lineWidth = 0.7 / s * dpr; g2.stroke();
+      if (pt.holes.length) { g2.beginPath(); for (const h of pt.holes) poly(g2, h); g2.fillStyle = '#dde1e6'; g2.fill(); }
+    };
+    const fixed = SIL.parts.filter(p => !p.moving), mov = SIL.parts.filter(p => p.moving);
+    fixed.filter(p => p.kind === 'Encoder').forEach(drawPart);
+    fixed.filter(p => p.kind !== 'Encoder').forEach(drawPart);
+    g2.save(); g2.translate(pv[0], pv[1]); g2.rotate(-th); g2.translate(-pv[0], -pv[1]);
+    mov.forEach(drawPart);
+    // flechas de empuje
+    const top = 422, arm = 36;
+    // torque del motor [N·m] → largo de la flecha. El izquierdo (x < 0) empuja → y el derecho ←.
+    const arrow = (x, dir, T) => { if (T < 0.003) return; const len = 14 + T * 600; g2.strokeStyle = '#F46008'; g2.fillStyle = '#F46008'; g2.lineWidth = 2.4;
+      g2.beginPath(); g2.moveTo(x, top); g2.lineTo(x + dir * len, top); g2.stroke(); g2.beginPath(); g2.moveTo(x + dir * (len + 8), top); g2.lineTo(x + dir * len, top + 4); g2.lineTo(x + dir * len, top - 4); g2.closePath(); g2.fill(); };
+    arrow(-arm, 1, sim.Ti); arrow(arm, -1, sim.Td);
+    g2.restore();
+    // pivote
+    g2.fillStyle = '#19b3a6'; g2.beginPath(); g2.arc(pv[0], pv[1], 2.2, 0, Math.PI * 2); g2.fill();
+    // rótulos
+    g2.setTransform(1, 0, 0, 1, 0, 0); g2.fillStyle = '#3a3f45'; g2.font = `600 ${12 * dpr}px Inter, sans-serif`;
+    g2.textAlign = 'center';
+    const narrow = W / dpr < 900;
+    g2.fillText(narrow ? 'Vista frontal a escala (CAD)' : 'Vista frontal a escala, tomada del CAD · motor izquierdo (line1) empuja → · motor derecho (line0) empuja ←', W / 2, (narrow ? 70 : 26) * dpr);
+    if (!narrow) { g2.fillStyle = '#c4580a'; g2.fillText('- - topes (−70,7° / +69,85°)', W / 2 - 120 * dpr, 46 * dpr);
+      g2.fillStyle = '#138a80'; g2.fillText('banda de tolerancia ±2°', W / 2 + 90 * dpr, 46 * dpr); }
+    g2.textAlign = 'left';
+  }
+
+  /* ───────── vista 3D con el modelo de SolidWorks ───────── */
+  let r3 = null, scene, cam, ctrls, pivot, props = [], arrows = [], band;
+  function init3D() {
+    if (!window.THREE) { setView('2d'); return; }
+    r3 = new THREE.WebGLRenderer({ canvas: $('c3d'), antialias: true, alpha: true });
+    r3.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    r3.outputEncoding = THREE.sRGBEncoding; r3.toneMapping = THREE.ACESFilmicToneMapping; r3.toneMappingExposure = 1.15;
+    r3.shadowMap.enabled = true; r3.shadowMap.type = THREE.PCFSoftShadowMap;
+    scene = new THREE.Scene();
+    cam = new THREE.PerspectiveCamera(32, 1, 0.01, 20);
+    cam.position.set(0.42, 0.40, -0.86);
+    ctrls = new THREE.OrbitControls(cam, $('c3d')); ctrls.target.set(0, 0.215, 0); ctrls.enableDamping = true; ctrls.minDistance = 0.25; ctrls.maxDistance = 2.5; ctrls.update();
+    scene.add(new THREE.HemisphereLight(0xfff4ea, 0x2a2622, 0.85));
+    const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(0.6, 1.2, -0.9); key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -0.5, right: 0.5, top: 0.6, bottom: -0.1, near: 0.1, far: 3 }); scene.add(key);
+    const rim = new THREE.DirectionalLight(0xffb37a, 0.7); rim.position.set(-0.8, 0.6, 0.9); scene.add(rim);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(1.2, 64), new THREE.MeshStandardMaterial({ color: 0x1c1b19, roughness: 0.95 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+    const grid = new THREE.GridHelper(2, 40, 0x3a3631, 0x26231f); grid.position.y = 0.0005; scene.add(grid);
+    pivot = new THREE.Group(); pivot.position.set(0, 0.1725, 0); scene.add(pivot);
+    // banda ±2° y topes (frente = -Z)
+    const r = 0.29, a = 2 * DEG;
+    const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.absarc(0, 0, r, Math.PI / 2 - a, Math.PI / 2 + a, false); sh.lineTo(0, 0);
+    band = new THREE.Mesh(new THREE.ShapeGeometry(sh, 24), new THREE.MeshBasicMaterial({ color: 0x19b3a6, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+    band.position.set(0, 0.1725, -0.03); scene.add(band);
+    new THREE.GLTFLoader().load('assets/cad/pendulo.gltf.json', gl => {
+      const meshes = []; gl.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
+      for (const m of meshes) {
+        scene.attach(m); m.castShadow = true; m.receiveShadow = true;
+        if (m.material) { m.material.side = THREE.DoubleSide; if (m.material.roughness < 0.3) m.material.roughness = 0.42; }
+        if (/propeller/.test(m.name)) { m.geometry.computeBoundingBox(); const c = new THREE.Vector3(); m.geometry.boundingBox.getCenter(c); m.geometry.translate(-c.x, -c.y, -c.z); m.position.add(c); props.push(m); }
+        if (/propeller|Varilla|Motor_Para|Soporte_Motores|Acople/.test(m.name)) pivot.attach(m);
+      }
+      props.sort((p, q) => p.position.x - q.position.x);
+      window.__listo3d = true;   // en -X está el motor que empuja hacia la derecha (motor 1)
+      const mk = (x, dir) => { const ar = new THREE.ArrowHelper(new THREE.Vector3(dir, 0, 0), new THREE.Vector3(x, 0.2185, 0), 0.06, 0xF46008, 0.018, 0.012); pivot.add(ar); return ar; };
+      arrows = [mk(0.044, -1), mk(-0.044, 1)];
+    }, undefined, () => setView('2d'));
+  }
+  let camMode = 0;
+  $('tabcam').onclick = () => { if (!cam) return; camMode = (camMode + 1) % 3;
+    const P = [[0.42, 0.40, -0.86, 0.215], [0.0, 0.26, -1.0, 0.22], [0.2, 0.47, -0.28, 0.36]][camMode];
+    cam.position.set(P[0], P[1], P[2]); ctrls.target.set(0, P[3], 0); ctrls.update(); };
+  function draw3D(dtWall) {
+    if (!r3) return;
+    pivot.rotation.z = sim.th;                          // de frente (−Z), +θ inclina a la derecha
+    // props[0] está en −X (motor derecho visto de frente); props[1] en +X (izquierdo). Cada uno sopla hacia afuera.
+    if (props.length === 2) {
+      props[0].rotation.x += dtWall * (sim.Td * 600 + 3);
+      props[1].rotation.x -= dtWall * (sim.Ti * 600 + 3);
+    }
+    if (arrows.length === 2) {
+      arrows[0].visible = sim.Ti > 0.003; arrows[0].setLength(0.03 + sim.Ti * 1.2, 0.018, 0.012);
+      arrows[1].visible = sim.Td > 0.003; arrows[1].setLength(0.03 + sim.Td * 1.2, 0.018, 0.012);
+    }
+    ctrls.update(); r3.render(scene, cam);
+  }
+
+  /* ───────── arrastre de la varilla ───────── */
+  function pointerAngle(ev) {
+    const rect = $('stage').getBoundingClientRect();
+    const x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+    if (view === '2d' && SIL) {
+      const dpr = window.devicePixelRatio || 1, W = c2.width / dpr, H = c2.height / dpr, s = Math.min(W / 260, H / 560);
+      const px = W / 2 + SIL.pivote[0] * s, py = (H - 24) - SIL.pivote[1] * s;
+      return Math.atan2(x - px, py - y) * RAD;
+    }
+    if (cam) {
+      const v = new THREE.Vector3(0, 0.1725, 0).project(cam);
+      const px = (v.x + 1) / 2 * rect.width, py = (1 - v.y) / 2 * rect.height;
+      return Math.atan2(x - px, py - y) * RAD;
+    }
+    return 0;
+  }
+  let dragging = false;
+  $('stage').addEventListener('pointerdown', ev => {
+    if (ev.target.closest('button')) return;
+    if (view === '3d' && !ev.shiftKey) {
+      // en 3D: arrastrar cerca de la varilla la empuja; lejos, orbita la cámara
+      const a = pointerAngle(ev); if (Math.abs(a - sim.th * RAD) > 25) return;
+      ctrls.enabled = false;
+    }
+    dragging = true; sim.hold = pointerAngle(ev); $('stage').setPointerCapture(ev.pointerId);
+  });
+  $('stage').addEventListener('pointermove', ev => { if (dragging) sim.hold = Math.max(-89, Math.min(89, pointerAngle(ev))); });
+  const end = () => { dragging = false; sim.hold = null; if (ctrls) ctrls.enabled = true; };
+  $('stage').addEventListener('pointerup', end); $('stage').addEventListener('pointercancel', end);
+
+  /* ───────── mini diagramas de la cadena ───────── */
+  const mini = {}; ['b_lv', 'b_daq', 'b_cmp', 'b_hb', 'b_mot', 'b_enc'].forEach(id => { mini[id] = $(id).getContext('2d'); });
+  let phase = 0, encCount = 0;
+  function drawChain(dtWall) {
+    const o = sim.out, Vao = o.motor ? o.AO : 0, duty = o.motor ? Math.max(0, Math.min(1, 1 - Vao / 5)) : 0;   // PWM invertido: AO 0 V = 100 %
+    phase += dtWall * 3;
+    const fit = (id) => { const c = $(id), d = window.devicePixelRatio || 1; const w = c.clientWidth * d, h = c.clientHeight * d; if (c.width !== w) { c.width = w; c.height = h; } const g = mini[id]; g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, w, h); return [g, c.clientWidth, c.clientHeight]; };
+    // LabVIEW: barra de u
+    { const [g, w, h] = fit('b_lv'); const um = o.umax || 1; g.fillStyle = '#222'; g.fillRect(8, h / 2 - 6, w - 16, 12); const x = w / 2 + (o.u / um) * (w / 2 - 8);
+      g.fillStyle = o.u >= 0 ? '#F46008' : '#4aa3ff'; g.fillRect(Math.min(w / 2, x), h / 2 - 6, Math.abs(x - w / 2), 12); g.fillStyle = '#666'; g.fillRect(w / 2 - 1, h / 2 - 12, 2, 24);
+      g.fillStyle = '#a3a09b'; g.font = '10px JetBrains Mono, monospace'; g.fillText('−umax', 6, h - 4); g.fillText('+umax', w - 40, h - 4);
+      $('v_lv').innerHTML = `u = ${fmt(o.u, 3)} <i>· seg.</i> ${o.seguridad ? '<b style="color:#ff4d4d">ON</b>' : 'off'}`; }
+    // DAQ: nivel AO + líneas digitales
+    { const [g, w, h] = fit('b_daq'); g.fillStyle = '#222'; g.fillRect(10, 8, 18, h - 16); const hh = (h - 16) * Vao / 5; g.fillStyle = '#F46008'; g.fillRect(10, h - 8 - hh, 18, hh);
+      g.font = '10px JetBrains Mono, monospace'; g.fillStyle = '#a3a09b'; g.fillText('ao0', 34, 16);
+      const led = (y, on, t) => { g.fillStyle = on ? '#3ddc84' : '#333'; g.beginPath(); g.arc(42, y, 5, 0, 7); g.fill(); g.fillStyle = '#a3a09b'; g.fillText(t, 52, y + 3); };
+      led(30, o.m1, 'line0 · der.'); led(46, o.m2, 'line1 · izq.');
+      $('v_daq').innerHTML = `AO ${fmt(Vao)} V <i>· motor</i> ${o.motor || '—'}`; }
+    // Comparador: sierra vs AO → PWM
+    { const [g, w, h] = fit('b_cmp'); const per = w / 3.2, mid = h * 0.52;
+      g.strokeStyle = '#4aa3ff'; g.lineWidth = 1.4; g.beginPath();
+      for (let x = 0; x <= w; x++) { const ph = ((x + phase * 30) % per) / per; const y = mid - 4 - ph * (mid - 10); x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+      const yl = mid - 4 - (Vao / 5) * (mid - 10); g.strokeStyle = '#F46008'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(0, yl); g.lineTo(w, yl); g.stroke(); g.setLineDash([]);
+      // salida en alto mientras la sierra está por encima de la AO (por eso el PWM queda invertido)
+      g.strokeStyle = '#3ddc84'; g.lineWidth = 1.6; g.beginPath();
+      for (let x = 0; x <= w; x++) { const ph = ((x + phase * 30) % per) / per; const hi = o.motor && ph > Vao / 5; const y = hi ? mid + 8 : h - 4; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+      $('v_cmp').innerHTML = `ciclo útil ${fmt(duty * 100, 0)} % <i>· V pedido ${fmt(o.V)}</i>`; }
+    // Puente H
+    { const [g, w, h] = fit('b_hb'); g.fillStyle = '#b71c1c'; g.fillRect(w / 2 - 26, 8, 52, h - 16); g.fillStyle = '#111'; g.fillRect(w / 2 - 14, 14, 28, 20);
+      g.font = '9px JetBrains Mono, monospace'; g.fillStyle = '#fff'; g.fillText('L298N', w / 2 - 15, h - 12);
+      const side = (x, on, t, al) => { g.fillStyle = on ? '#3ddc84' : '#333'; g.beginPath(); g.arc(x, h / 2, 6, 0, 7); g.fill(); g.fillStyle = '#a3a09b'; g.textAlign = al; g.fillText(t, x + (al === 'left' ? 10 : -10), h / 2 + 3); g.textAlign = 'left'; };
+      side(14, o.m2, 'izq.', 'left'); side(w - 14, o.m1, 'der.', 'right');
+      $('v_hb').innerHTML = o.motor === 1 ? 'motor derecho (line0)' : o.motor === 2 ? 'motor izquierdo (line1)' : 'sin habilitar'; }
+    // Motores: barras de torque (izquierdo empuja →, derecho empuja ←)
+    { const [g, w, h] = fit('b_mot'); const bar = (x, T, c, t) => { const hh = Math.min(h - 18, T / 0.05 * (h - 18)); g.fillStyle = '#222'; g.fillRect(x, 6, 26, h - 18); g.fillStyle = c; g.fillRect(x, h - 12 - hh, 26, hh); g.fillStyle = '#a3a09b'; g.font = '10px JetBrains Mono, monospace'; g.fillText(t, x + 2, h - 1); };
+      bar(w / 2 - 40, sim.Ti, '#F46008', 'izq'); bar(w / 2 + 14, sim.Td, '#4aa3ff', 'der');
+      $('v_mot').innerHTML = `izq ${fmt(sim.Ti * 1000, 0)} · der ${fmt(sim.Td * 1000, 0)} mN·m`; }
+    // Encoder: pulsos A/B en cuadratura
+    { const [g, w, h] = fit('b_enc'); const counts = Math.round(sim.th * RAD / sim.p.res); const dc = counts - encCount; encCount = counts;
+      const off = counts * 2.2; const per = 16;
+      const wave = (y0, sh, c) => { g.strokeStyle = c; g.lineWidth = 1.5; g.beginPath(); for (let x = 0; x <= w; x++) { const q = (((x + off + sh) % per) + per) % per; const y = q < per / 2 ? y0 : y0 + 14; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
+      wave(8, 0, '#f2c230'); wave(34, per / 4, '#19b3a6');
+      g.fillStyle = '#a3a09b'; g.font = '10px JetBrains Mono, monospace'; g.fillText('A', 2, 18); g.fillText('B', 2, 44);
+      $('v_enc').innerHTML = `${counts} cuentas <i>· ${fmt(counts * sim.p.res)}°</i>`; }
+  }
+
+  /* ───────── gráficas ───────── */
+  function graph(id, series, opt) {
+    const c = $(id), d = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== w * d) { c.width = w * d; c.height = h * d; }
+    const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, w, h);
+    const L = 40, R = 8, T = 8, B = 26, pw = w - L - R, ph = h - T - B;
+    const t1 = hist.length ? hist[hist.length - 1].t : 0, t0 = Math.max(0, t1 - 10);
+    const X = t => L + (t - t0) / 10 * pw, Y = v => T + ph / 2 - (v - (opt.mid || 0)) / opt.span * ph / 2;
+    if (opt.band) { g.fillStyle = 'rgba(25,179,166,.15)'; g.fillRect(L, Y(opt.band), pw, Y(-opt.band) - Y(opt.band)); }
+    g.strokeStyle = '#2c2c2c'; g.lineWidth = 1; g.strokeRect(L, T, pw, ph);
+    g.font = '10px JetBrains Mono, monospace'; g.fillStyle = '#8a8782'; g.textAlign = 'right';
+    for (const v of opt.ticks) { const y = Y(v); g.fillText(String(v).replace('.', ','), L - 5, y + 3); g.strokeStyle = '#222'; g.beginPath(); g.moveTo(L, y); g.lineTo(L + pw, y); g.stroke(); }
+    g.textAlign = 'center';
+    for (let k = Math.ceil(t0); k <= t1; k += 2) g.fillText(k + '', X(k), T + ph + 13);
+    g.fillText('tiempo t [s]', L + pw / 2, h - 2);
+    g.save(); g.translate(10, T + ph / 2); g.rotate(-Math.PI / 2); g.fillText(opt.ylabel, 0, 0); g.restore();
+    for (const s of series) {
+      g.strokeStyle = s.c; g.lineWidth = s.w || 1.8; g.beginPath(); let st = false;
+      for (const p of hist) { if (p.t < t0) continue; const v = Math.max(opt.mid - opt.span, Math.min(opt.mid + opt.span, s.f(p))); const x = X(p.t), y = Y(v); st ? g.lineTo(x, y) : g.moveTo(x, y); st = true; }
+      g.stroke();
+    }
+    g.textAlign = 'left'; let lx = L + 6;
+    for (const s of series) { g.fillStyle = s.c; g.fillRect(lx, T + 6, 10, 3); g.fillStyle = '#c9c6c1'; g.fillText(s.n, lx + 14, T + 10); lx += g.measureText(s.n).width + 30; }
+  }
+  function drawGraphs() {
+    const span = Math.max(4, Math.min(80, Math.ceil(Math.max(...hist.map(p => Math.abs(p.th)), 2) * 1.2)));
+    graph('g_th', [{ n: 'θ', c: '#F46008', f: p => p.th }, { n: 'referencia', c: '#f1efeb', w: 1, f: p => p.ref }], { span, mid: 0, band: 2, ticks: [span, 2, 0, -2, -span].filter((v, i, a) => a.indexOf(v) === i), ylabel: 'ángulo [°]' });
+    graph('g_u', [{ n: 'u', c: '#4aa3ff', f: p => p.u }], { span: 1.2, mid: 0, ticks: [1, 0.5, 0, -0.5, -1], ylabel: 'u [V eq.]' });
+    graph('g_v', [{ n: 'V AO', c: '#F46008', f: p => p.V }, { n: 'motor (0, 1, 2)', c: '#3ddc84', w: 1.2, f: p => p.motor }], { span: 2.75, mid: 2.5, ticks: [5, 4, 3, 2, 1, 0], ylabel: 'voltaje [V]' });
+  }
+
+  /* ───────── HUD ───────── */
+  function hud() {
+    const th = sim.th * RAD, o = sim.out;
+    $('h_t').textContent = fmt(sim.t) + ' s'; $('h_th').textContent = fmt(th) + '°'; $('h_v').textContent = fmt(o.motor ? o.AO : 0) + ' V';
+    $('h_m').textContent = o.motor === 1 ? '← derecho' : o.motor === 2 ? 'izquierdo →' : 'ninguno';
+    $('h_f').textContent = fmt((sim.Ti + sim.Td) * 1000, 0) + ' mN·m';
+    let est, col;
+    const E = ['SUBE CON EMPUJE MÁXIMO', 'PLANEA CON MOTORES APAGADOS', '', 'NO DESPEGÓ EN 1,5 s: MOTORES APAGADOS'];
+    if (sim.v.swing && o.est === 3) { est = '● SWING UP · ' + E[3]; col = '#ff4d4d'; }
+    else if (sim.v.swing && (o.est === 0 || o.est === 1)) { est = '● SWING UP · ' + E[o.est]; col = '#F46008'; }
+    else if (sim.contacto) { est = '● EN EL TOPE'; col = '#ff4d4d'; }
+    else if (o.seguridad) { est = '● LÍMITE DE SEGURIDAD: MOTORES A 0 V'; col = '#ff4d4d'; }
+    else if (!sim.v.en) { est = '● MOTORES DESHABILITADOS'; col = '#a3a09b'; }
+    else if (Math.abs(th - sim.v.ref) <= 2) { est = '● DENTRO DE ±2°'; col = '#19b3a6'; }
+    else { est = '● FUERA DE ±2°'; col = '#f2c230'; }
+    $('h_est').textContent = est; $('h_est').style.color = col;
+  }
+
+  /* ───────── bucle principal ───────── */
+  function resize() {
+    const st = $('stage'), d = window.devicePixelRatio || 1, w = st.clientWidth, h = st.clientHeight;
+    c2.width = w * d; c2.height = h * d;
+    if (r3) { r3.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  }
+  window.addEventListener('resize', resize);
+  let acc = 0, gCount = 0;
+  function loop(now) {
+    const dtWall = Math.min(0.05, (now - lastWall) / 1000); lastWall = now;
+    if (running) {
+      acc += dtWall * speed; const dt = 0.0005; let n = 0;
+      while (acc >= dt && n < 400) { sim.step(dt); acc -= dt; n++;
+        if (!hist.length || sim.t - hist[hist.length - 1].t >= 0.02) hist.push({ t: sim.t, th: sim.th * RAD, ref: sim.v.ref, u: sim.out.u, V: sim.out.motor ? sim.out.AO : 0, motor: sim.out.motor }); }
+      if (hist.length > 700) hist.splice(0, hist.length - 700);
+    }
+    view === '3d' ? draw3D(dtWall) : draw2D();
+    drawChain(running ? dtWall * speed : 0); hud();
+    if ((gCount++ & 1) === 0) drawGraphs();
+    if (!GRABAR) requestAnimationFrame(loop);
+  }
+  const hideHint = () => { $('hint').hidden = true; };
+  setTimeout(hideHint, 14000); $('stage').addEventListener('pointerdown', hideHint, { once: true });
+  readPanel(); init3D(); resize();
+  document.querySelector('#scen button[data-s="swingI"]').click();   // arranca mostrando el swing up, como en el laboratorio
+  if (!GRABAR) requestAnimationFrame(loop);
+  /* Modo grabación (?grabar=1): el video del gemelo se captura fotograma por fotograma */
+  if (GRABAR) {
+    hideHint();
+    const sub = document.createElement('div');
+    sub.style.cssText = 'position:fixed;left:770px;bottom:252px;transform:translateX(-50%);z-index:99;max-width:1320px;padding:16px 30px;border-radius:14px;background:rgba(12,12,12,.88);border:1px solid #F46008;color:#f1efeb;font:600 30px Inter,system-ui,sans-serif;text-align:center;line-height:1.3;transition:opacity .25s';
+    sub.style.opacity = 0; document.body.appendChild(sub);
+    window.__sim = {
+      sim, set, readPanel, setView, setTs,
+      escena: (k) => document.querySelector(`#scen button[data-s="${k}"]`).click(),
+      golpe: (v) => sim.golpe(v),
+      camara: () => $('tabcam').click(),
+      subt: (t) => { if (t) sub.textContent = t; sub.style.opacity = t ? 1 : 0; },
+      subtArriba: (v) => { sub.style.bottom = v ? '' : '252px'; sub.style.top = v ? '86px' : ''; sub.style.left = v ? '50%' : '770px'; },
+      frame: (dt) => { lastWall = performance.now() - dt * 1000; loop(performance.now()); },
+    };
+  }
+})();
+</script>
+</body>
+</html>

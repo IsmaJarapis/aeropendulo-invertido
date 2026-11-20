@@ -1,0 +1,104 @@
+CODIGO FINAL DEL FORMULA NODE - control aeropendulo Ismael.vi (17-nov-2026, swing up agregado el 19-nov)
+Copiado tal cual del VI. Lazo: While Loop con Wait de 1 ms (corre a ~150 Hz, 6,6 ms por ciclo).
+
+ENTRADAS
+  raw    angulo del encoder (grados, DAQ Assistant2: ctr0, PFI8/PFI10, X4, 2000 P/R)
+  tick   Tick Count (ms)          n      iteracion del lazo
+  tarar  boton Tarar (0/1)        th0p, thp, Ip, dp, tp   valores del ciclo anterior (feedback nodes)
+  ref    referencia (grados)      Kp, Ki, Kd   ganancias por radian
+  autom  modo automatico (0/1)    en     Habilitar motores (0/1)    inv   Invertir sentido (0/1)
+  sel    motor manual (1/2)       Vman   voltaje manual             Voff  arranque del motor
+  Vmax   limite de voltaje        angmax angulo limite (grados)     alto  STOP (0/1)
+  pinv   PWM invertido (0/1)      Kv     ganancia del actuador
+  swing  selector MODO DE ARRANQUE: 0 vertical a mano, 1 swing up desde tope IZQUIERDO, 2 swing up desde tope DERECHO
+  thcut  Corte: angulo donde se apaga el empuje de subida (45 funciono)
+  Vr     motores en reposo (0 = apagado)   Vc  limite segun angulo (0 = apagado)   Vp  pulsos (0 = apagado)
+SALIDAS
+  th0, thdeg (angulo en grados), I, d, t, u (salida del control), V (voltaje a la AO),
+  m1, m2 (lineas digitales port0/line0 y line1), motor (0, 1, 2), errdeg (error en grados)
+  est    estado del swing up: 0 sube, 1 planea, 2 sostiene, 3 no despego del tope en 1.5 s (motores apagados) (se guarda en la parte decimal de t para no agregar otro feedback node)
+
+VALORES POR DEFECTO (los que funcionan): Kp 2 | Ki 0,4 | Kd 0,9 | Kv 0,6 | Voff 0,2 | Vmax 5 | angulo limite 90
+Modo automatico ON | Invertir sentido ON | PWM invertido ON | Vr = Vc = Vp = 0 (funciones de prueba desactivadas)
+Modo de arranque: Vertical | Corte 45 | topes medidos: izquierdo -70.7, derecho +69.85 (fijos en el codigo)
+
+LINEAS QUE DEFINEN EL CONTROL FINAL
+  - d = exp(-h/0.005)*dp + (1 - exp(-h/0.005))*(th - thp*k)/h     -> derivativo con filtro de 5 ms (antes 0,8/0,2 = ~40 ms de retardo)
+  - u = I - Kp*th - Kd*d (forma I-PD), limitado a +-umax; el integral se congela si u satura
+  - V = min(Vmax, Voff + Kv*|u|)  y  AO = 5 - V  (actuador lineal + PWM invertido)
+  - un solo motor encendido segun el signo de u (Invertir sentido intercambia cual)
+  - swing up: empuje maximo hacia la vertical hasta |angulo| <= Corte, motores apagados (planea) hasta |angulo| <= 12,
+    luego el I-PD; si pasa de 35 grados vuelve a subir. Con swing = 1 el cero se fija como raw - tope al dar Run.
+
+---------------------------------------------------------------------------------------------
+// Control I-PD del aeropendulo (Ismael). Angulos en grados afuera, radianes adentro.
+// Ganancias Kp, Ki, Kd por radian (informe: 2.23, 0.28, 0.38). u en "voltios diferenciales" del modelo.
+float64 a, c, Km, Kao, k, h, th, r, err, Itry, ut, umax, Vmot, F, Vm, tmp, tope;
+a = 6.83e-3; c = 8.19e-3; Km = 0.0492; Kao = 1.43; k = 3.14159265/180;
+t = tick;
+h = (tick - floor(tp))/1000;   // tp lleva el estado del swing up en la parte decimal
+if (n == 0 || h <= 0 || h > 0.1) h = 0.01;
+th0 = th0p;
+if (n == 0 || tarar != 0) th0 = raw;
+// Modo de arranque (swing): 0 vertical a mano, 1 swing up desde el tope IZQUIERDO, 2 swing up desde el tope DERECHO
+// En swing up el cero (vertical) se fija desde el tope medido con el encoder: izquierdo -70.7, derecho +69.85 grados
+tope = -70.7;
+if (swing == 2) tope = 69.85;
+if (n == 0 && swing != 0) th0 = raw - tope;
+thdeg = raw - th0;
+th = thdeg*k;
+r = ref*k;
+if (n == 0 || tarar != 0) { d = 0; I = 0; }
+else { d = exp(-h/0.005)*dp + (1 - exp(-h/0.005))*(th - thp*k)/h; I = Ip; }
+Vmot = Vmax/Kao;
+umax = (a*Vmot*Vmot + c*Vmot)/(2*Km);
+err = r - th;
+Itry = I + Ki*h*err;
+ut = Itry - Kp*th - Kd*d;
+u = ut;
+if (u > umax) u = umax;
+if (u < -umax) u = -umax;
+if (u == ut) I = Itry;
+F = 2*Km*abs(u);
+Vm = (-c + sqrt(c*c + 4*a*F))/(2*a);
+m1 = 0; m2 = 0; V = 0;
+if (autom != 0) {
+  if (abs(u) > 0.01) { V = min(Vmax, Kao*(Vm + Voff)); if (u > 0) m1 = 1; else m2 = 1; }
+  if (inv != 0) { tmp = m1; m1 = m2; m2 = tmp; }
+  if (abs(err) > angmax*k) { V = 0; m1 = 0; m2 = 0; I = 0; }
+} else {
+  I = 0;
+  V = min(Vmax, Vman);
+  if (sel == 1) m1 = 1;
+  if (sel == 2) m2 = 1;
+}
+if (en == 0 || alto != 0) { V = 0; m1 = 0; m2 = 0; I = 0; }
+if (m1 == 0 && m2 == 0) V = 0;
+motor = m1 + 2*m2;
+errdeg = ref - thdeg;
+// PWM invertido: el circuito da mas empuje con menos voltaje en la AO
+if (pinv != 0 && V > 0) V = 5 - V;
+// Seguridad: en manual con Voltaje manual = 0 no se prende ningun motor
+if (autom == 0 && Vman <= 0) { V = 0; m1 = 0; m2 = 0; motor = 0; }
+// Actuador lineal: V = Voff + Kv*|u| (reemplaza la curva de empuje del informe)
+if (autom != 0 && (m1 != 0 || m2 != 0)) { V = min(Vmax, Voff + Kv*abs(u)); if (pinv != 0) V = 5 - V; }
+// Motores en reposo: si el control pide menos que Vr, se prenden las DOS lineas con Vr (giran suave y se cancelan); Vr = 0 lo desactiva
+if (Vr > 0 && autom != 0 && en != 0 && alto == 0 && abs(err) <= angmax*k && Voff + Kv*abs(u) < Vr) { m1 = 1; m2 = 1; motor = 3; V = Vr; if (pinv != 0) V = 5 - V; }
+// Limite segun el angulo: cerca de 0 grados el voltaje no pasa de Vc y sube en linea recta hasta Vmax a los 20 grados (Vc = 0 lo desactiva)
+if (Vc > 0 && autom != 0 && (m1 + m2) == 1) { V = min(Vc + (Vmax - Vc)*min(1, abs(thdeg)/20), Voff + Kv*abs(u)); if (pinv != 0) V = 5 - V; }
+// Pulsos: si el control pide menos que Vp, el motor se prende solo una fraccion de cada 5 ciclos (unos 50 ms) con la AO al minimo; Vp = 0 lo desactiva
+if (Vp > 0 && autom != 0 && (m1 + m2) == 1 && Voff + Kv*abs(u) < Vp) { V = 0; if (pinv != 0) V = 5; if (n - 5*floor(n/5) >= 5*(Voff + Kv*abs(u))/Vp) { m1 = 0; m2 = 0; motor = 0; V = 0; } }
+// Swing up (swing = 1 o 2): sube desde el tope y la atrapa. est: 0 subir con empuje maximo, 1 planear con motores apagados, 2 sostener con el I-PD,
+// 3 error: no despego del tope en 1.5 s (lado del tope equivocado o motor sin fuerza) -> motores apagados hasta el proximo Run
+est = floor((tp - floor(tp))*10 + 0.5);   // estado del ciclo anterior (guardado en la parte decimal de t)
+if (n == 0) est = 0;
+if (swing == 0) est = 2;
+if (swing != 0 && autom != 0 && en != 0 && alto == 0) {
+  if (est == 0) { if (abs(thdeg) <= thcut) est = 1; else { I = Ip + h; if (I > 1.5 && abs(thdeg) > 55) est = 3; } }
+  else if (est == 1) { if (abs(thdeg) <= 12) { est = 2; I = 0; } else if (thdeg*d > 0 && abs(d) > 0.05) est = 0; }
+  else if (est == 2 && abs(thdeg) > 35) { est = 0; I = 0; }
+  if (est == 0) { m1 = 0; m2 = 0; if (thdeg < 0) m1 = 1; else m2 = 1; if (inv != 0) { tmp = m1; m1 = m2; m2 = tmp; } motor = m1 + 2*m2; V = Vmax; if (pinv != 0) V = 5 - V; }
+  if (est == 1 || est == 3) { V = 0; m1 = 0; m2 = 0; motor = 0; I = 0; }
+}
+t = tick + est/10;
+

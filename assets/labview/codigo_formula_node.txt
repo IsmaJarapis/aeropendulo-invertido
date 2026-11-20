@@ -1,0 +1,43 @@
+﻿// Control I-PD del aeropendulo (Ismael). Angulos en grados afuera, radianes adentro.
+// Ganancias Kp, Ki, Kd por radian (informe: 2.23, 0.28, 0.38). u en "voltios diferenciales" del modelo.
+// Entradas: raw, tick, n (iteracion), tarar, th0p, thp, Ip, dp, tp, ref, Kp, Ki, Kd, autom, en, inv,
+//           sel, Vman, Voff, Vmax, angmax, alto
+// Salidas:  th0, thdeg, I, d, t, u, V, m1, m2, motor, errdeg
+float64 a, c, Km, Kao, k, h, th, r, err, Itry, ut, umax, Vmot, F, Vm, tmp;
+a = 6.83e-3; c = 8.19e-3; Km = 0.0492; Kao = 1.43; k = 3.14159265/180;
+t = tick;
+h = (tick - tp)/1000;
+if (n == 0 || h <= 0 || h > 0.1) h = 0.01;
+th0 = th0p;
+if (n == 0 || tarar != 0) th0 = raw;
+thdeg = raw - th0;
+th = thdeg*k;
+r = ref*k;
+if (n == 0 || tarar != 0) { d = 0; I = 0; }
+else { d = 0.8*dp + 0.2*(th - thp*k)/h; I = Ip; }
+Vmot = Vmax/Kao;
+umax = (a*Vmot*Vmot + c*Vmot)/(2*Km);
+err = r - th;
+Itry = I + Ki*h*err;
+ut = Itry - Kp*th - Kd*d;
+u = ut;
+if (u > umax) u = umax;
+if (u < -umax) u = -umax;
+if (u == ut) I = Itry;
+F = 2*Km*abs(u);
+Vm = (-c + sqrt(c*c + 4*a*F))/(2*a);
+m1 = 0; m2 = 0; V = 0;
+if (autom != 0) {
+  if (abs(u) > 0.01) { V = min(Vmax, Kao*(Vm + Voff)); if (u > 0) m1 = 1; else m2 = 1; }
+  if (inv != 0) { tmp = m1; m1 = m2; m2 = tmp; }
+  if (abs(err) > angmax*k) { V = 0; m1 = 0; m2 = 0; I = 0; }
+} else {
+  I = 0;
+  V = min(Vmax, Vman);
+  if (sel == 1) m1 = 1;
+  if (sel == 2) m2 = 1;
+}
+if (en == 0 || alto != 0) { V = 0; m1 = 0; m2 = 0; I = 0; }
+if (m1 == 0 && m2 == 0) V = 0;
+motor = m1 + 2*m2;
+errdeg = ref - thdeg;

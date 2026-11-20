@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Entrenamiento del Gemelo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  /* 20 gemelos del aeropéndulo probando ternas PID en paralelo (búsqueda por entropía cruzada) */
+  :root {
+    color-scheme: dark;
+    --bg: #0c0c0c; --panel: #151515; --panel2: #1c1c1c; --line: #262626; --line2: #333;
+    --fg: #f1efeb; --mut: #a3a09b; --dim: #6f6c68;
+    --org: #F46008; --org2: #ff8a3d; --teal: #19b3a6; --yel: #f2c230; --red: #ff4d4d; --grn: #3ddc84;
+    --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace; --sans: 'Inter', system-ui, sans-serif; --disp: 'Bebas Neue', 'Inter', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  button, input { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--org); outline-offset: 2px; }
+
+  header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: rgba(12,12,12,.95); border-bottom: 1px solid var(--line); }
+  header img { height: 34px; width: auto; }
+  .brand b { font-family: var(--disp); font-size: 24px; letter-spacing: 2px; font-weight: 400; }
+  .brand b span { color: var(--org); }
+  .brand small { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--mut); text-transform: uppercase; }
+  header .sp { flex: 1; }
+  header a.back { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; color: var(--mut); text-decoration: none; border: 1px solid var(--line2); padding: 7px 12px; border-radius: 6px; white-space: nowrap; }
+  header a.back:hover { color: var(--fg); border-color: var(--org); }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+  .stage { position: relative; height: calc(100vh - 56px); min-height: 560px; background: radial-gradient(ellipse at 50% 20%, #1d1c1a 0%, #0c0c0c 75%); overflow: hidden; }
+  .stage canvas#c3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #tags { position: absolute; inset: 0; pointer-events: none; }
+  .tag { position: absolute; transform: translate(-50%, -100%); font-family: var(--mono); font-size: clamp(9px, .62vw, 13px); line-height: 1.25; text-align: center; white-space: nowrap; color: var(--mut); text-shadow: 0 1px 3px #000, 0 0 6px #000; font-variant-numeric: tabular-nums; transition: opacity .3s; }
+  .tag b { display: block; font-size: 1.12em; color: var(--fg); letter-spacing: .5px; }
+  /* en pantallas grandes (grabación a 1080p) todo el HUD crece */
+  @media (min-width: 1500px) {
+    .gen .k { font-size: 14px; } .gen .n { font-size: 88px; } .gen .n small { font-size: 40px; } .gen .f { font-size: 16px; max-width: 620px; }
+    .stats div { padding: 12px 20px; } .stats span { font-size: 11px; } .stats strong { font-size: 30px; }
+    .card h3 { font-size: 12px; } .spag { width: 560px; } .spag canvas { height: 200px; } .scat { width: 380px; } .scat canvas { height: 250px; }
+    .banner { padding: 30px 48px; } .banner .k { font-size: 14px; } .banner .t { font-size: 64px; } .banner .s { font-size: 16px; }
+    .terna div { min-width: 130px; } .terna strong { font-size: 36px; } .terna span { font-size: 12px; }
+  }
+  .tag.ok b { color: var(--grn); } .tag.warn b { color: var(--yel); } .tag.fall b { color: var(--red); } .tag.elite b { color: var(--org2); }
+  .tag.fall { opacity: .55; } .tag.dimmed { opacity: 0; }
+
+  /* overlays del escenario */
+  .ov { position: absolute; z-index: 5; }
+  .gen { top: 16px; left: 18px; }
+  .gen .k { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--org); }
+  .gen .n { font-family: var(--disp); font-size: 64px; line-height: .95; letter-spacing: 2px; }
+  .gen .n small { font-size: 30px; color: var(--dim); }
+  .gen .f { font-family: var(--mono); font-size: 12px; color: var(--mut); letter-spacing: 1px; margin-top: 4px; max-width: 440px; }
+  .stats { top: 16px; right: 18px; display: grid; grid-template-columns: repeat(4, auto); gap: 0; background: rgba(14,14,14,.82); border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; }
+  .stats div { padding: 10px 14px; border-right: 1px solid var(--line); text-align: right; }
+  .stats div:last-child { border-right: 0; }
+  .stats span { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; color: var(--dim); text-transform: uppercase; }
+  .stats strong { font-family: var(--mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .timer { top: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,.06); }
+  .timer i { display: block; height: 100%; width: 0; background: var(--org); }
+  .card { background: rgba(14,14,14,.86); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 12px 8px; }
+  .card h3 { margin: 0 0 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--org); text-transform: uppercase; font-weight: 700; }
+  .card h3 small { color: var(--dim); font-weight: 500; letter-spacing: 1px; text-transform: none; }
+  .card canvas { display: block; width: 100%; }
+  .spag { left: 18px; bottom: 18px; width: min(420px, 40%); }
+  .spag canvas { height: 150px; }
+  .scat { right: 18px; bottom: 18px; width: min(300px, 30%); }
+  .scat canvas { height: 190px; }
+  .center { left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; transition: left .8s ease; }
+  .center.izq { left: 32%; }
+  @media (max-width: 1000px) { .center.izq { left: 50%; } }
+  .banner { background: rgba(10,10,10,.9); border: 1px solid var(--org); border-radius: 12px; padding: 22px 34px; box-shadow: 0 0 60px rgba(244,96,8,.18); opacity: 0; transition: opacity .45s, transform .45s; transform: translateY(8px); }
+  .banner.on { opacity: 1; transform: none; }
+  .banner .k { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--org); }
+  .banner .t { font-family: var(--disp); font-size: 46px; letter-spacing: 2px; line-height: 1.05; margin: 6px 0 4px; }
+  .banner .s { font-family: var(--mono); font-size: 13px; color: var(--mut); }
+  .terna { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+  .terna div { border: 1px solid var(--line2); border-radius: 8px; padding: 8px 14px; min-width: 96px; background: #111; }
+  .terna span { display: block; font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: 2px; }
+  .terna strong { font-family: var(--mono); font-size: 26px; font-variant-numeric: tabular-nums; color: var(--fg); }
+  .terna.final strong { color: var(--teal); }
+  .terna .was { display: block; font-family: var(--mono); font-size: 11px; color: var(--dim); text-decoration: line-through; }
+
+  /* panel lateral */
+  aside { background: var(--panel); border-left: 1px solid var(--line); height: calc(100vh - 56px); min-height: 560px; overflow-y: auto; }
+  .sec { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .sec h2 { margin: 0 0 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 2.5px; color: var(--org); text-transform: uppercase; font-weight: 700; }
+  .sec p { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: var(--mut); }
+  .sec p b { color: var(--fg); font-weight: 600; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btns button { background: var(--panel2); color: var(--fg); border: 1px solid var(--line2); border-radius: 7px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .btns button:hover { border-color: var(--org); }
+  .btns button.pri { background: var(--org); border-color: var(--org); color: #111; font-weight: 700; }
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--mut); }
+  .row input { width: 90px; background: #0f0f0f; color: var(--fg); border: 1px solid var(--line2); border-radius: 6px; padding: 6px 8px; font-family: var(--mono); font-size: 12px; }
+  ol.steps { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; color: var(--mut); }
+  ol.steps li { margin-bottom: 5px; } ol.steps b { color: var(--fg); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  th { text-align: right; font-weight: 500; color: var(--dim); font-size: 10px; letter-spacing: 1px; padding: 0 4px 6px; }
+  td { text-align: right; padding: 4px; border-top: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  td.hi { color: var(--org2); }
+  #g_rew { height: 150px; display: block; width: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--mono); font-size: 10px; color: var(--mut); margin-top: 8px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .note { font-size: 11.5px !important; color: var(--dim) !important; }
+  .kbd { font-family: var(--mono); font-size: 10px; border: 1px solid var(--line2); border-radius: 4px; padding: 1px 5px; color: var(--mut); }
+
+  /* modo video: solo el escenario, a pantalla completa */
+  body.video header, body.video aside { display: none; }
+  body.video main { grid-template-columns: 1fr; }
+  body.video .stage { height: 100vh; }
+
+  @media (max-width: 1000px) {
+    main { grid-template-columns: 1fr; }
+    .stage { height: 72vh; min-height: 460px; }
+    aside { height: auto; min-height: 0; border-left: 0; border-top: 1px solid var(--line); }
+    .scat { display: none; }
+    .spag { width: calc(100% - 36px); }
+    .spag canvas { height: 110px; }
+    .stats { grid-template-columns: repeat(2, auto); }
+    .gen .n { font-size: 46px; } .gen .n small { font-size: 22px; }
+    .gen .f { max-width: 52vw; }
+  }
+  @media (max-width: 600px) {
+    header { padding: 8px 16px; } .brand small { display: none; }
+    .gen { left: 16px; } .stats { right: 16px; top: 92px; } .spag { left: 16px; bottom: 16px; width: calc(100% - 32px); }
+    .banner { padding: 16px 18px; } .banner .t { font-size: 32px; }
+    .terna div { min-width: 0; padding: 6px 10px; } .terna strong { font-size: 20px; }
+    .tag { font-size: 8px; } .tag b { font-size: 9px; } .tag .k3 { display: none; }
+    .center { width: calc(100% - 32px); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <img src="assets/marca/jarapis_j.png" alt="">
+  <div class="brand"><b>JARAPIS <span>LAB</span></b><small>Entrenamiento en el gemelo digital · 20 aeropéndulos en paralelo</small></div>
+  <div class="sp"></div>
+  <a class="back" href="simulador.html">GEMELO ↗</a>
+  <a class="back" href="index.html">← SITIO</a>
+</header>
+
+<main>
+  <div class="stage" id="stage">
+    <canvas id="c3d"></canvas>
+    <div id="tags"></div>
+    <div class="ov timer"><i id="timer"></i></div>
+    <div class="ov gen">
+      <div class="k" id="genK">BÚSQUEDA DE TERNAS PID</div>
+      <div class="n" id="genN">GEN 01 <small>/ 10</small></div>
+      <div class="f" id="genF">Ternas aleatorias</div>
+    </div>
+    <div class="ov stats">
+      <div><span>En pie</span><strong id="sUp">20</strong></div>
+      <div><span>Caídos</span><strong id="sDown" style="color:var(--red)">0</strong></div>
+      <div><span>En ±2°</span><strong id="sBand" style="color:var(--grn)">0</strong></div>
+      <div><span>Mejor R</span><strong id="sBest" style="color:var(--org2)">—</strong></div>
+    </div>
+    <div class="ov card spag"><h3>Ángulo de los 20 péndulos <small>θ [°] · banda ±2°</small></h3><canvas id="g_th"></canvas></div>
+    <div class="ov card scat"><h3>Ternas probadas <small>Kp vs Kd</small></h3><canvas id="g_sc"></canvas></div>
+    <div class="ov center" id="bannerBox"><div class="banner" id="banner"></div></div>
+  </div>
+
+  <aside>
+    <div class="sec">
+      <h2>Control</h2>
+      <div class="btns">
+        <button class="pri" id="play">❚❚ Pausa</button>
+        <button id="speed">Velocidad 2×</button>
+        <button id="restart">↺ Reiniciar</button>
+        <button id="video">⛶ Modo video</button>
+      </div>
+      <div class="row">Semilla <input id="seed" type="number" value="2026"> <span class="kbd">Espacio</span> <span class="kbd">V</span> <span class="kbd">R</span></div>
+    </div>
+    <div class="sec">
+      <h2>Cómo aprende</h2>
+      <ol class="steps">
+        <li><b>20 gemelos</b> del aeropéndulo arrancan inclinados, sienten la turbulencia del aire y reciben un golpe a los 3 s. Cada uno corre el <b>Formula Node del VI</b> con una terna distinta, sobre la planta caracterizada (motores casi todo/nada, τ ≈ 0,03 s, topes en ≈ ±72°).</li>
+        <li>Se mide qué tan bien se sostuvo: <b>R = 100·e<sup>−J/50</sup></b>, con J = ∫|θ|dt + 5·(tiempo fuera de ±2°) + castigo si cae.</li>
+        <li>Las <b>5 mejores</b> (élite) definen una nube gaussiana; de ahí salen las 20 ternas de la siguiente generación (método de entropía cruzada).</li>
+        <li><b>Etapa 1, VI original</b> (lazo de 10,5 ms, derivativo con ~40 ms de retardo): ninguna terna baja de la meseta. <b>Etapa 2, VI corregido</b> (filtro de 5 ms, 6,6 ms por ciclo, Kv 0,6): converge a ±2°.</li>
+        <li>La terna del gemelo se <b>corrige con ensayos en el equipo real</b> y se valida en 20 plantas con ±5 % de variación.</li>
+      </ol>
+      <div class="legend"><span><i style="background:var(--grn)"></i>dentro de ±2°</span><span><i style="background:var(--yel)"></i>fuera de la banda</span><span><i style="background:var(--red)"></i>cayó</span><span><i style="background:var(--org)"></i>élite</span></div>
+    </div>
+    <div class="sec">
+      <h2>Recompensa por generación</h2>
+      <canvas id="g_rew"></canvas>
+      <div class="legend"><span><i style="background:var(--org)"></i>mejor</span><span><i style="background:var(--mut)"></i>promedio</span><span><i style="background:rgba(255,77,77,.6);border-radius:2px"></i>caídos</span></div>
+    </div>
+    <div class="sec">
+      <h2>Élite de la generación</h2>
+      <table><thead><tr><th>#</th><th>Kp</th><th>Ki</th><th>Kd</th><th>R</th></tr></thead><tbody id="top"><tr><td colspan="5" style="text-align:left;color:var(--dim)">Esperando la primera evaluación…</td></tr></tbody></table>
+    </div>
+    <div class="sec">
+      <h2>En el equipo real</h2>
+      <table>
+        <tbody>
+          <tr><td>Ensayos de ternas</td><td>42</td></tr>
+          <tr><td>Caídas</td><td>5</td></tr>
+          <tr><td>Mejor antes de medir</td><td>±6°</td></tr>
+          <tr><td>Terna final</td><td class="hi">2 · 0,4 · 0,9</td></tr>
+          <tr><td>Kv · filtro derivativo</td><td>0,6 · 5 ms</td></tr>
+          <tr><td>Error rms (prueba 8)</td><td class="hi">0,88°</td></tr>
+          <tr><td>Tiempo dentro de ±2°</td><td class="hi">99 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sec">
+      <p class="note">La búsqueda corre sobre el gemelo digital calibrado con los ensayos de escalón y los registros de la planta. El gemelo acota las candidatas y los ensayos en el aeropéndulo real dan la terna final.</p>
+    </div>
+  </aside>
+</main>
+
+<script src="gemelo-core.js?v=19nov4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+  'use strict';
+  /* ═════════════ CONFIGURACIÓN ═════════════
+     FINAL = terna del VI definitivo (la que se corrigió en planta).
+     Cambiar aquí cuando llegue el código pulido de esta semana.          */
+  const CONFIG = {
+    N: 20, COLS: 5, GENS: 10, GENS_A: 5, ELITE: 5,
+    T_EP: 6, T_GOLPE: 3, DT: 0.0005,
+    RANGO: [[0, 6], [0, 2], [0, 2.5]],           // Kp, Ki, Kd (por radián, como en el VI)
+    // Etapa 1: VI original (Wait de 10 ms, derivativo 0,8/0,2 ≈ 40 ms, Kv 3,5)
+    // Etapa 2: VI corregido (Wait de 1 ms → 6,6 ms, derivativo con filtro de 5 ms, Kv 0,6)
+    ESTRUCTURA: {
+      A: { Ts: 0.0105, TauD: 0.04, Kv: 3.5, txt: 'lazo 10,5 ms · derivativo ~40 ms · Kv 3,5' },
+      B: { Ts: 0.0066, TauD: 0.005, Kv: 0.6, txt: 'lazo 6,6 ms · derivativo 5 ms · Kv 0,6' },
+    },
+    FINAL: { Kp: 2, Ki: 0.4, Kd: 0.9 },          // VI final del 17-nov (prueba 8)
+    VAR_VALIDACION: 0.05,                         // ±5 % en inercia, torque, retardo y asimetría de motores
+  };
+  const G = window.Gemelo, RAD = 180 / Math.PI;
+  const $ = id => document.getElementById(id);
+  const fmt = (v, d = 2) => v.toFixed(d).replace('.', ',').replace('-', '−');
+  const COL = { ok: '#3ddc84', warn: '#f2c230', fall: '#ff4d4d', elite: '#F46008', teal: '#19b3a6', dim: '#6f6c68' };
+
+  /* ── aleatorio reproducible ── */
+  let R;
+  function mulberry(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const gauss = () => { let u = 0; while (!u) u = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * R()); };
+  const clampK = (v, i) => Math.min(CONFIG.RANGO[i][1], Math.max(CONFIG.RANGO[i][0], v));
+
+  /* ═════════════ ESTADO DEL ENTRENAMIENTO ═════════════ */
+  let S;                 // estado global
+  let agents = [];       // { K:[Kp,Ki,Kd], sim, J, fuera, cayo, tC, hist:[], elite, champ }
+  function nuevoEstado() {
+    R = mulberry(+$('seed').value || 2026);
+    S = {
+      fase: 'intro', tFase: 0, gen: 1, tEp: 0, golpeado: false, escena: null,
+      mu: null, sd: null, mejor: null, historial: [], nube: [], resultado: null,
+    };
+    const pop = Array.from({ length: CONFIG.N }, () => CONFIG.RANGO.map(([lo, hi]) => lo + R() * (hi - lo)));
+    cargarPoblacion(pop);
+  }
+  function escena() {      // condición inicial, golpe y turbulencia de la generación (iguales para los 20)
+    const s = R() < 0.5 ? 1 : -1;
+    return { th0: s * (3 + R() * 3), golpe: (R() < 0.5 ? 1 : -1) * (0.0007 + R() * 0.0005), seed: 1 + Math.floor(R() * 1e6) };
+  }
+  const etapa = () => (S.fase === 'validacion' || S.fase === 'fin' || S.gen > CONFIG.GENS_A) ? 'B' : 'A';
+  function cargarPoblacion(pop, plantas) {
+    S.escena = escena();
+    const E = CONFIG.ESTRUCTURA[plantas ? 'B' : etapa()];
+    agents = pop.map((K, i) => {
+      const sim = G.crearReal({ vi: { Kp: K[0], Ki: K[1], Kd: K[2], Ts: E.Ts, TauD: E.TauD, Kv: E.Kv },
+                                planta: plantas ? plantas[i] : {}, seed: plantas ? S.escena.seed + 7919 * i : S.escena.seed });
+      sim.reset(S.escena.th0);
+      const prev = agents[i];
+      return { K, sim, J: 0, fuera: 0, cayo: false, tC: null, hist: [], elite: false, champ: false, Rw: null,
+               thVis: prev ? prev.sim.th : sim.th };
+    });
+    S.tEp = 0; S.k = 0; S.golpeado = false;
+  }
+  function pasoFisica(dtSim) {
+    const n = Math.max(1, Math.round(dtSim / CONFIG.DT)), cada = Math.round(0.02 / CONFIG.DT);
+    for (let k = 0; k < n && S.tEp < CONFIG.T_EP; k++) {
+      if (!S.golpeado && S.tEp >= CONFIG.T_GOLPE) { agents.forEach(a => a.sim.golpe(S.escena.golpe)); S.golpeado = true; }
+      for (const a of agents) {
+        a.sim.step(CONFIG.DT);
+        const d = Math.abs(a.sim.th * RAD);
+        a.J += d * CONFIG.DT; if (d > 2) a.fuera += CONFIG.DT;
+        if (!a.cayo && d > 30) { a.cayo = true; a.tC = S.tEp; }
+      }
+      S.tEp += CONFIG.DT; S.k++;
+      if (S.k % cada === 0) agents.forEach(a => a.hist.push(a.sim.th * RAD));
+    }
+  }
+  function costo(a) { return a.J + 5 * a.fuera + (a.cayo ? 200 + 50 * (CONFIG.T_EP - a.tC) : 0); }
+  const recompensa = J => 100 * Math.exp(-J / 50);
+
+  function evaluar() {
+    agents.forEach(a => { a.Jt = costo(a); a.Rw = recompensa(a.Jt); });
+    const orden = agents.slice().sort((x, y) => x.Jt - y.Jt);
+    const elite = orden.slice(0, CONFIG.ELITE); elite.forEach(a => a.elite = true);
+    if (!S.mejor || orden[0].Jt < S.mejor.Jt) S.mejor = { K: orden[0].K.slice(), Jt: orden[0].Jt, Rw: orden[0].Rw, gen: S.gen };
+    S.mu = [0, 1, 2].map(i => elite.reduce((s, a) => s + a.K[i], 0) / elite.length);
+    S.sd = [0, 1, 2].map(i => { const r = CONFIG.RANGO[i][1] - CONFIG.RANGO[i][0];
+      return Math.max(0.03 * r, Math.sqrt(elite.reduce((s, a) => s + (a.K[i] - S.mu[i]) ** 2, 0) / elite.length)); });
+    S.historial.push({ gen: S.gen, best: orden[0].Rw, mean: agents.reduce((s, a) => s + a.Rw, 0) / agents.length, caidos: agents.filter(a => a.cayo).length });
+    S.nube.push(agents.map(a => a.K.slice()));
+    tablaElite(elite);
+    return orden;
+  }
+  function siguienteGeneracion() {
+    S.gen++;
+    const cambio = S.gen === CONFIG.GENS_A + 1;
+    if (cambio) {         // estructura nueva: la nube se vuelve a abrir y la élite anterior ya no vale
+      S.mejorA = S.mejor; S.mejor = null;
+      S.sd = S.sd.map((s, i) => Math.max(s, 0.15 * (CONFIG.RANGO[i][1] - CONFIG.RANGO[i][0])));
+    }
+    const pop = Array.from({ length: CONFIG.N }, () => S.mu.map((m, i) => clampK(m + S.sd[i] * gauss(), i)));
+    // elitismo: la mejor terna de la etapa sigue en la población (en una posición al azar)
+    const slot = Math.floor(R() * CONFIG.N);
+    if (S.mejor) pop[slot] = S.mejor.K.slice();
+    cargarPoblacion(pop);
+    if (S.mejor) agents[slot].champ = true;
+  }
+  function plantasVariadas() {
+    const v = CONFIG.VAR_VALIDACION, P = G.PLANTA_REAL, u = () => 1 + v * (2 * R() - 1);
+    return Array.from({ length: CONFIG.N }, () => ({ I: P.I * u(), Tmax: P.Tmax * u(), tau: P.tau * u(), retardo: P.retardo * u(), asim: 1 + (P.asim - 1) * u() * (R() < 0.5 ? 1 : -1) }));
+  }
+
+  /* ═════════════ ESCENA 3D ═════════════ */
+  const stage = $('stage'), canvas = $('c3d');
+  const r3 = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  r3.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  r3.outputEncoding = THREE.sRGBEncoding; r3.toneMapping = THREE.ACESFilmicToneMapping; r3.toneMappingExposure = 1.1;
+  r3.shadowMap.enabled = true; r3.shadowMap.type = THREE.PCFSoftShadowMap;
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x0c0c0c, 4.5, 9);
+  const cam = new THREE.PerspectiveCamera(34, 1, 0.02, 30);
+  const ctrls = new THREE.OrbitControls(cam, canvas);
+  ctrls.enableDamping = true; ctrls.minDistance = 0.4; ctrls.maxDistance = 7; ctrls.maxPolarAngle = Math.PI * 0.49;
+  let usuarioMovio = false; ctrls.addEventListener('start', () => { usuarioMovio = true; });
+
+  scene.add(new THREE.HemisphereLight(0xfff4ea, 0x1d1a17, 0.75));
+  const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(1.4, 2.6, -1.8); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -2.2, right: 2.2, top: 2.2, bottom: -2.2, near: 0.5, far: 7 }); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xffb37a, 0.6); rim.position.set(-2, 1.2, 2); scene.add(rim);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshStandardMaterial({ color: 0x151412, roughness: 0.95 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const grid = new THREE.GridHelper(14, 140, 0x2b2824, 0x1d1b18); grid.position.y = 0.0005; scene.add(grid);
+
+  const SX = 0.56, SZ = 0.62, ROWS = Math.ceil(CONFIG.N / CONFIG.COLS);
+  const posDe = i => new THREE.Vector3(((i % CONFIG.COLS) - (CONFIG.COLS - 1) / 2) * SX, 0, (Math.floor(i / CONFIG.COLS) - (ROWS - 1) / 2) * SZ);
+  const PIV_Y = 0.1725;
+  const inst = [];     // { root, piv, props, arrows, ring, tag }
+
+  // baldosa de cada entorno + anillo de estado + banda ±2°
+  const tileGeo = new THREE.PlaneGeometry(SX * 0.9, SZ * 0.9);
+  const tileMat = new THREE.MeshStandardMaterial({ color: 0x1b1a18, roughness: 0.9 });
+  const ringGeo = new THREE.RingGeometry(0.13, 0.15, 48);
+  const bandGeo = (() => { const r = 0.29, a = 2 / RAD, sh = new THREE.Shape(); sh.moveTo(0, 0); sh.absarc(0, 0, r, Math.PI / 2 - a, Math.PI / 2 + a, false); sh.lineTo(0, 0); return new THREE.ShapeGeometry(sh, 16); })();
+  const bandMat = new THREE.MeshBasicMaterial({ color: 0x19b3a6, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false });
+
+  const tagsEl = $('tags');
+  for (let i = 0; i < CONFIG.N; i++) {
+    const p = posDe(i);
+    const tile = new THREE.Mesh(tileGeo, tileMat); tile.rotation.x = -Math.PI / 2; tile.position.set(p.x, 0.001, p.z); tile.receiveShadow = true; scene.add(tile);
+    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: COL.ok, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, 0.003, p.z); scene.add(ring);
+    const band = new THREE.Mesh(bandGeo, bandMat); band.position.set(p.x, PIV_Y, p.z - 0.03); scene.add(band);
+    const tag = document.createElement('div'); tag.className = 'tag'; tagsEl.appendChild(tag);
+    inst.push({ p, ring, tag, root: null, piv: null, props: [], arrows: [] });
+  }
+
+  // modelo CAD (una sola carga; las 20 copias comparten geometría y materiales)
+  new THREE.GLTFLoader().load('assets/cad/pendulo.gltf.json', gl => {
+    const tpl = new THREE.Group(); const piv = new THREE.Group(); piv.name = 'piv'; piv.position.set(0, PIV_Y, 0); tpl.add(piv);
+    gl.scene.updateMatrixWorld(true); tpl.updateMatrixWorld(true);
+    const meshes = []; gl.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
+    for (const m of meshes) {
+      tpl.attach(m); m.castShadow = true; m.receiveShadow = true;
+      if (m.material) { m.material.side = THREE.DoubleSide; if (m.material.roughness < 0.3) m.material.roughness = 0.42; }
+      if (/propeller/.test(m.name)) { m.geometry.computeBoundingBox(); const c = new THREE.Vector3(); m.geometry.boundingBox.getCenter(c); m.geometry.translate(-c.x, -c.y, -c.z); m.position.add(c); m.userData.prop = true; }
+      if (/propeller|Varilla|Motor_Para|Soporte_Motores|Acople/.test(m.name)) piv.attach(m);
+    }
+    inst.forEach(it => {
+      const root = tpl.clone(true); root.position.copy(it.p); scene.add(root);
+      it.root = root; it.piv = root.getObjectByName('piv');
+      it.props = it.piv.children.filter(o => o.userData.prop).sort((a, b) => a.position.x - b.position.x);
+      const mk = (x, dir) => { const ar = new THREE.ArrowHelper(new THREE.Vector3(dir, 0, 0), new THREE.Vector3(x, 0.2185, 0), 0.06, 0xF46008, 0.018, 0.012); it.piv.add(ar); return ar; };
+      it.arrows = [mk(0.044, -1), mk(-0.044, 1)];
+    });
+  });
+
+  /* cámara: vista general de frente (−Z) con un leve vaivén; enfoque en un péndulo */
+  const CAM_GEN = { pos: new THREE.Vector3(1.05, 1.55, -3.05), tgt: new THREE.Vector3(0, 0.12, 0.25) };
+  cam.position.copy(CAM_GEN.pos); ctrls.target.copy(CAM_GEN.tgt); ctrls.update();
+  let camVuelo = null;   // { p0, t0, p1, t1, k, dur }
+  function volarA(pos, tgt, dur = 1.6) { camVuelo = { p0: cam.position.clone(), t0: ctrls.target.clone(), p1: pos.clone(), t1: tgt.clone(), k: 0, dur }; }
+  // el péndulo enfocado queda en el tercio derecho de la pantalla (+X es la izquierda vista de frente) y el cartel a la izquierda
+  function enfocar(i) { const p = inst[i].p; volarA(new THREE.Vector3(p.x + 0.55, 1.2, p.z - 1.3), new THREE.Vector3(p.x + 0.26, 0.26, p.z)); $('bannerBox').classList.add('izq'); }
+  function vistaGeneral() { volarA(CAM_GEN.pos, CAM_GEN.tgt, 2); $('bannerBox').classList.remove('izq'); }
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    r3.setSize(w, h, false); cam.aspect = w / h;
+    // en pantallas angostas la cámara se aleja para que quepan los 20
+    if (w / h < 1) CAM_GEN.pos.set(1.4, 2.9, -4.9); else CAM_GEN.pos.set(0.95, 2.05, -3.75);
+    CAM_GEN.tgt.set(0, 0.02, 0.12);
+    cam.updateProjectionMatrix();
+    for (const id of ['g_th', 'g_sc', 'g_rew']) { const c = $(id), d = window.devicePixelRatio || 1; c.width = c.clientWidth * d; c.height = c.clientHeight * d; }
+  }
+  window.addEventListener('resize', resize);
+
+  /* ═════════════ INTERFAZ ═════════════ */
+  const banner = $('banner');
+  function mostrarBanner(html) { banner.innerHTML = html; banner.classList.add('on'); }
+  function ocultarBanner() { banner.classList.remove('on'); }
+  const ternaHTML = (K, cls = '', prev) => `<div class="terna ${cls}">${['Kp', 'Ki', 'Kd'].map((n, i) =>
+    `<div><span>${n}</span>${prev ? `<em class="was">${fmt(prev[i])}</em>` : ''}<strong>${fmt(K[i])}</strong></div>`).join('')}</div>`;
+
+  function tablaElite(elite) {
+    $('top').innerHTML = elite.map((a, j) => `<tr><td class="${j === 0 ? 'hi' : ''}">${String(agents.indexOf(a) + 1).padStart(2, '0')}${a.champ ? ' ★' : ''}</td><td>${fmt(a.K[0])}</td><td>${fmt(a.K[1])}</td><td>${fmt(a.K[2])}</td><td class="${j === 0 ? 'hi' : ''}">${fmt(a.Rw, 1)}</td></tr>`).join('');
+  }
+
+  function estadoAgente(a) {
+    if (a.cayo) return 'fall';
+    if (S.fase === 'evaluacion' && a.elite) return 'elite';
+    return Math.abs(a.sim.th * RAD) <= 2 ? 'ok' : 'warn';
+  }
+
+  function actualizarHUD() {
+    const up = agents.filter(a => !a.cayo).length;
+    $('sUp').textContent = up; $('sDown').textContent = CONFIG.N - up;
+    $('sBand').textContent = agents.filter(a => !a.cayo && Math.abs(a.sim.th * RAD) <= 2).length;
+    $('sBest').textContent = S.mejor ? fmt(S.mejor.Rw, 1) : '—';
+    $('timer').style.width = (100 * Math.min(1, S.tEp / CONFIG.T_EP)) + '%';
+    const val = S.fase === 'validacion' || S.fase === 'fin' || S.fase === 'correccion' || S.fase === 'hallazgo';
+    const E = etapa();
+    $('genK').textContent = val ? 'DEL GEMELO AL EQUIPO REAL' : (E === 'A' ? 'ETAPA 1 · VI ORIGINAL' : 'ETAPA 2 · VI CORREGIDO');
+    $('genN').innerHTML = val ? ({ hallazgo: 'HALLAZGO', correccion: 'CORRECCIÓN' }[S.fase] || 'VALIDACIÓN') : `GEN ${String(S.gen).padStart(2, '0')} <small>/ ${CONFIG.GENS}</small>`;
+    let f = '';
+    if (S.fase === 'intro') f = '20 gemelos · un objetivo: sostener la varilla en ±2°';
+    else if (S.fase === 'episodio') f = S.gen === 1 ? 'Ternas al azar: muchas no se sostienen' : S.gen === CONFIG.GENS_A + 1 ? CONFIG.ESTRUCTURA.B.txt : `${CONFIG.ESTRUCTURA[E].txt} · σKp ${fmt(S.sd[0])} · σKd ${fmt(S.sd[2])}`;
+    else if (S.fase === 'evaluacion') f = `Se eligen las ${CONFIG.ELITE} mejores ternas`;
+    else if (S.fase === 'diagnostico' || S.fase === 'cambio') f = 'Medir la planta en vez de seguir probando a ciegas';
+    else if (S.fase === 'hallazgo') f = 'Mejor terna encontrada en simulación';
+    else if (S.fase === 'correccion') f = 'Ajuste con ensayos en el aeropéndulo real';
+    else f = `Terna final en 20 plantas con ±${Math.round(CONFIG.VAR_VALIDACION * 100)} % de variación`;
+    if (S.fase === 'episodio' && S.tEp > CONFIG.T_GOLPE && S.tEp < CONFIG.T_GOLPE + 0.8) f = '¡Golpe! Perturbación de torque a los 3 s';
+    $('genF').textContent = f;
+  }
+
+  /* ── gráficas 2D ── */
+  function ejes(g, W, H, pad) { g.strokeStyle = '#2a2a2a'; g.lineWidth = 1; g.strokeRect(pad.l, pad.t, W - pad.l - pad.r, H - pad.t - pad.b); }
+  function dibujarSpag() {
+    const c = $('g_th'), g = c.getContext('2d'), d = window.devicePixelRatio || 1, W = c.width / d, H = c.height / d;
+    g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
+    const pad = { l: 26, r: 6, t: 4, b: 14 }, Y = etapa() === 'A' ? 15 : 8;
+    const x = t => pad.l + (W - pad.l - pad.r) * t / CONFIG.T_EP, y = v => pad.t + (H - pad.t - pad.b) * (1 - (Math.max(-Y, Math.min(Y, v)) + Y) / (2 * Y));
+    g.fillStyle = 'rgba(25,179,166,.14)'; g.fillRect(pad.l, y(2), W - pad.l - pad.r, y(-2) - y(2));
+    g.strokeStyle = 'rgba(25,179,166,.5)'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(pad.l, y(0)); g.lineTo(W - pad.r, y(0)); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = 'rgba(244,96,8,.5)'; g.beginPath(); g.moveTo(x(CONFIG.T_GOLPE), pad.t); g.lineTo(x(CONFIG.T_GOLPE), H - pad.b); g.stroke();
+    ejes(g, W, H, pad);
+    g.fillStyle = '#6f6c68'; g.font = '9px JetBrains Mono, monospace'; g.textAlign = 'right';
+    [Y, 2, -2, -Y].forEach(v => g.fillText((v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v), pad.l - 4, y(v) + 3));
+    g.textAlign = 'left'; g.fillText('golpe', x(CONFIG.T_GOLPE) + 3, H - 4); g.fillText('0 s', pad.l, H - 3); g.textAlign = 'right'; g.fillText(CONFIG.T_EP + ' s', W - pad.r, H - 3);
+    g.lineWidth = 1.2;
+    for (const a of agents) {
+      if (a.hist.length < 2) continue;
+      const st = estadoAgente(a);
+      g.strokeStyle = st === 'fall' ? 'rgba(255,77,77,.55)' : st === 'elite' ? COL.elite : st === 'ok' ? 'rgba(61,220,132,.8)' : 'rgba(242,194,48,.75)';
+      g.beginPath(); a.hist.forEach((v, k) => { const px = x(k * 0.02), py = y(v); k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke();
+    }
+  }
+  function dibujarScatter() {
+    const c = $('g_sc'); if (!c.clientWidth) return;
+    const g = c.getContext('2d'), d = window.devicePixelRatio || 1, W = c.width / d, H = c.height / d;
+    g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
+    const pad = { l: 24, r: 6, t: 4, b: 16 }, [kx, ky] = [CONFIG.RANGO[0], CONFIG.RANGO[2]];
+    const x = v => pad.l + (W - pad.l - pad.r) * (v - kx[0]) / (kx[1] - kx[0]), y = v => pad.t + (H - pad.t - pad.b) * (1 - (v - ky[0]) / (ky[1] - ky[0]));
+    ejes(g, W, H, pad);
+    g.fillStyle = '#6f6c68'; g.font = '9px JetBrains Mono, monospace';
+    g.textAlign = 'center'; [0, 1, 2, 3, 4, 5, 6].forEach(v => g.fillText(v, x(v), H - 4));
+    g.textAlign = 'right'; [0, 1, 2].forEach(v => g.fillText(v, pad.l - 4, y(v) + 3));
+    g.save(); g.translate(9, pad.t + (H - pad.t - pad.b) / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText('Kd', 0, 0); g.restore();
+    g.textAlign = 'left'; g.fillText('Kp →', W - pad.r - 30, pad.t + 10);
+    // generaciones anteriores (más tenues cuanto más viejas)
+    S.nube.forEach((pop, gi) => { const al = 0.08 + 0.25 * (gi + 1) / S.nube.length; g.fillStyle = `rgba(163,160,155,${al})`; pop.forEach(K => { g.beginPath(); g.arc(x(K[0]), y(K[2]), 2, 0, 7); g.fill(); }); });
+    // nube de muestreo (±2σ)
+    if (S.mu && S.fase !== 'validacion' && S.fase !== 'fin') {
+      g.strokeStyle = 'rgba(244,96,8,.7)'; g.setLineDash([4, 3]); g.beginPath();
+      g.ellipse(x(S.mu[0]), y(S.mu[2]), Math.abs(x(2 * S.sd[0]) - x(0)), Math.abs(y(0) - y(2 * S.sd[2])), 0, 0, 7); g.stroke(); g.setLineDash([]);
+    }
+    // población actual
+    for (const a of agents) {
+      const st = estadoAgente(a); g.fillStyle = COL[st] || COL.ok;
+      g.beginPath(); g.arc(x(a.K[0]), y(a.K[2]), a.champ ? 4.5 : 3.4, 0, 7); g.fill();
+      if (a.champ) { g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke(); }
+    }
+    if (S.fase === 'correccion' || S.fase === 'validacion' || S.fase === 'fin') {
+      const F = CONFIG.FINAL; g.strokeStyle = COL.teal; g.lineWidth = 2;
+      g.beginPath(); g.arc(x(F.Kp), y(F.Kd), 7, 0, 7); g.stroke();
+      if (S.mejor) { g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x(S.mejor.K[0]), y(S.mejor.K[2])); g.lineTo(x(F.Kp), y(F.Kd)); g.stroke(); g.setLineDash([]); }
+    }
+  }
+  function dibujarRecompensa() {
+    const c = $('g_rew'); if (!c.clientWidth) return;
+    const g = c.getContext('2d'), d = window.devicePixelRatio || 1, W = c.width / d, H = c.height / d;
+    g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
+    const pad = { l: 26, r: 6, t: 6, b: 16 }, n = CONFIG.GENS;
+    const x = i => pad.l + (W - pad.l - pad.r) * (i - 0.5) / n, y = v => pad.t + (H - pad.t - pad.b) * (1 - v / 100);
+    ejes(g, W, H, pad);
+    g.fillStyle = '#6f6c68'; g.font = '9px JetBrains Mono, monospace'; g.textAlign = 'right';
+    [0, 50, 100].forEach(v => g.fillText(v, pad.l - 4, y(v) + 3));
+    g.textAlign = 'center'; for (let i = 1; i <= n; i++) g.fillText(i, x(i), H - 4);
+    const xc = (x(CONFIG.GENS_A) + x(CONFIG.GENS_A + 1)) / 2;   // cambio de estructura del VI
+    g.strokeStyle = 'rgba(25,179,166,.6)'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(xc, pad.t); g.lineTo(xc, H - pad.b); g.stroke(); g.setLineDash([]);
+    g.fillStyle = 'rgba(25,179,166,.85)'; g.textAlign = 'left'; g.fillText('VI corregido →', xc + 4, pad.t + 9);
+    g.fillStyle = '#6f6c68'; g.textAlign = 'right'; g.fillText('← VI original', xc - 4, pad.t + 9);
+    const bw = (W - pad.l - pad.r) / n * 0.5;
+    S.historial.forEach(h => { g.fillStyle = 'rgba(255,77,77,.45)'; const hh = (H - pad.t - pad.b) * h.caidos / CONFIG.N; g.fillRect(x(h.gen) - bw / 2, H - pad.b - hh, bw, hh); });
+    const linea = (key, col, w) => { g.strokeStyle = col; g.fillStyle = col; g.lineWidth = w; g.beginPath(); S.historial.forEach((h, k) => k ? g.lineTo(x(h.gen), y(h[key])) : g.moveTo(x(h.gen), y(h[key]))); g.stroke();
+      S.historial.forEach(h => { g.beginPath(); g.arc(x(h.gen), y(h[key]), 2.5, 0, 7); g.fill(); }); };
+    linea('mean', '#a3a09b', 1.2); linea('best', '#F46008', 2);
+  }
+
+  /* ═════════════ MÁQUINA DE FASES ═════════════ */
+  const DUR = { intro: 2.6, evaluacion: 2.0, diagnostico: 4.0, cambio: 4.0, hallazgo: 3.2, correccion: 4.2 };
+  function cambiarFase(f) { S.fase = f; S.tFase = 0; }
+
+  function avanzar(dtWall, dtSim) {
+    S.tFase += dtWall;
+    switch (S.fase) {
+      case 'intro':
+        if (S.tFase < 0.1) mostrarBanner(`<div class="k">ENTRENAMIENTO EN EL GEMELO DIGITAL</div><div class="t">20 AEROPÉNDULOS EN PARALELO</div><div class="s">Cada uno prueba una terna PID distinta. Las que se sostienen enseñan a la siguiente generación.</div>`);
+        if (S.tFase > DUR.intro) { ocultarBanner(); cambiarFase('episodio'); }
+        break;
+      case 'episodio':
+        pasoFisica(dtSim);
+        if (S.tEp >= CONFIG.T_EP - 1e-9) { evaluar(); cambiarFase('evaluacion'); }
+        break;
+      case 'evaluacion':
+        if (S.tFase > DUR.evaluacion) {
+          if (S.gen >= CONFIG.GENS) { cambiarFase('hallazgo'); const k = agents.findIndex(a => a.K.every((v, i) => v === S.mejor.K[i])); enfocar(k >= 0 ? k : 0);
+            mostrarBanner(`<div class="k">TERNA ENCONTRADA EN SIMULACIÓN · GEN ${S.mejor.gen}</div><div class="t">R = ${fmt(S.mejor.Rw, 1)}</div>${ternaHTML(S.mejor.K)}`); }
+          else if (S.gen === CONFIG.GENS_A) {
+            cambiarFase('diagnostico');
+            const enPie = agents.filter(a => !a.cayo).map(a => Math.max(...a.hist.slice(100).map(Math.abs)));
+            const meseta = enPie.length ? Math.min(...enPie) : 0;
+            mostrarBanner(`<div class="k">MESETA · ${CONFIG.GENS_A} GENERACIONES</div><div class="t">NINGUNA TERNA BAJA DE ±${Math.round(meseta)}°</div><div class="s">Cambiar Kp, Ki y Kd ya no enseña nada nuevo. Se mide la planta y el lazo:<br>el derivativo llega con ~40 ms de retraso y los motores son casi todo/nada.</div>`);
+          }
+          else { siguienteGeneracion(); cambiarFase('episodio'); }
+        }
+        break;
+      case 'diagnostico':
+        if (S.tFase > DUR.diagnostico) { cambiarFase('cambio');
+          mostrarBanner(`<div class="k">CAMBIO DE ESTRUCTURA DEL VI</div><div class="t">EL PROBLEMA NO ERA LA TERNA</div><div class="terna"><div><span>DERIVATIVO</span><em class="was">~40 ms</em><strong>5 ms</strong></div><div><span>LAZO</span><em class="was">10,5 ms</em><strong>6,6 ms</strong></div><div><span>Kv</span><em class="was">3,5</em><strong>0,6</strong></div></div>`); }
+        break;
+      case 'cambio':
+        if (S.tFase > DUR.cambio) { ocultarBanner(); siguienteGeneracion(); cambiarFase('episodio'); }
+        break;
+      case 'hallazgo':
+        if (S.tFase > DUR.hallazgo) { cambiarFase('correccion');
+          const F = CONFIG.FINAL;
+          mostrarBanner(`<div class="k">CORRECCIÓN EN EL EQUIPO REAL</div><div class="t">TERNA FINAL DEL VI</div><div class="s">El gemelo acerca la búsqueda; los 42 ensayos en planta dan el ajuste fino.</div>${ternaHTML([F.Kp, F.Ki, F.Kd], 'final', S.mejor.K)}`); }
+        break;
+      case 'correccion':
+        if (S.tFase > DUR.correccion) {
+          ocultarBanner(); vistaGeneral();
+          const F = CONFIG.FINAL;
+          cargarPoblacion(Array.from({ length: CONFIG.N }, () => [F.Kp, F.Ki, F.Kd]), plantasVariadas());
+          cambiarFase('validacion');
+        }
+        break;
+      case 'validacion':
+        pasoFisica(dtSim);
+        if (S.tEp >= CONFIG.T_EP - 1e-9) {
+          agents.forEach(a => { a.Jt = costo(a); a.Rw = recompensa(a.Jt); });
+          const up = agents.filter(a => !a.cayo).length;
+          const maxG = Math.max(...agents.filter(a => !a.cayo).map(a => Math.max(...a.hist.slice(Math.round(CONFIG.T_GOLPE / 0.02)).map(Math.abs))), 0);
+          const finEn = agents.filter(a => !a.cayo && Math.abs(a.sim.th * RAD) <= 2).length;
+          const F = CONFIG.FINAL;
+          mostrarBanner(`<div class="k">ENTRENAMIENTO COMPLETO</div><div class="t">${up} / ${CONFIG.N} SE SOSTIENEN</div><div class="s">Gemelo: ${finEn} terminan dentro de ±2° · desvío máximo tras el golpe ${fmt(maxG, 1)}°<br>Equipo real: 0,88° rms · 99 % del tiempo dentro de ±2°</div>${ternaHTML([F.Kp, F.Ki, F.Kd], 'final')}`);
+          cambiarFase('fin');
+        }
+        break;
+    }
+  }
+
+  /* ═════════════ BUCLE ═════════════ */
+  let pausa = false, vel = 2, tPrev = performance.now(), tReloj = 0;
+  const VELS = [1, 2, 4, 8];
+  const tmpV = new THREE.Vector3();
+  function frame(now) {
+    const dtWall = Math.min(0.05, (now - tPrev) / 1000); tPrev = now;
+    if (!pausa) { avanzar(dtWall * Math.max(1, vel / 2), dtWall * vel); tReloj += dtWall; }
+
+    // reacomodo visual: al cambiar de generación la varilla vuelve suave a la posición inicial
+    for (let i = 0; i < inst.length; i++) {
+      const it = inst[i], a = agents[i]; if (!a) continue;
+      a.thVis += (a.sim.th - a.thVis) * (S.tEp < 0.25 ? 0.25 : 1);
+      if (it.piv) {
+        it.piv.rotation.z = a.thVis;
+        // props[0] está en −X (motor derecho visto de frente, line0); props[1] en +X (izquierdo, line1).
+        // Cada motor sopla hacia afuera: el izquierdo empuja la varilla a la derecha (θ > 0) y viceversa.
+        const Td = a.sim.Td, Ti = a.sim.Ti;
+        if (it.props.length === 2) { it.props[0].rotation.x += dtWall * (Td * 600 + 3); it.props[1].rotation.x -= dtWall * (Ti * 600 + 3); }
+        it.arrows[0].visible = Ti > 0.003; it.arrows[0].setLength(0.03 + Ti * 1.2, 0.018, 0.012);
+        it.arrows[1].visible = Td > 0.003; it.arrows[1].setLength(0.03 + Td * 1.2, 0.018, 0.012);
+      }
+      const st = estadoAgente(a);
+      it.ring.material.color.set(COL[st]); it.ring.material.opacity = st === 'fall' ? 0.45 : 0.95;
+      const s = st === 'elite' ? 1.15 + 0.06 * Math.sin(now / 120) : 1; it.ring.scale.set(s, s, s);
+      // rótulo
+      tmpV.set(it.p.x, 0.56, it.p.z).project(cam);
+      const vis = tmpV.z < 1;
+      it.tag.style.display = vis ? '' : 'none';
+      if (vis) {
+        it.tag.style.left = ((tmpV.x + 1) / 2 * stage.clientWidth) + 'px';
+        it.tag.style.top = ((1 - tmpV.y) / 2 * stage.clientHeight) + 'px';
+        const foco = (S.fase === 'hallazgo' || S.fase === 'correccion') && !a.K.every((v, j) => v === S.mejor.K[j]);
+        it.tag.className = 'tag ' + st + (foco ? ' dimmed' : '');
+        const txt = `<b>#${String(i + 1).padStart(2, '0')}${a.champ ? ' ★' : ''}${S.fase === 'evaluacion' && a.Rw != null ? ' · R ' + fmt(a.Rw, 0) : a.cayo ? ' · CAYÓ' : ''}</b>${fmt(a.K[0])} · ${fmt(a.K[1])}<span class="k3"> · ${fmt(a.K[2])}</span>`;
+        if (it.tag._t !== txt) { it.tag.innerHTML = txt; it.tag._t = txt; }
+      }
+    }
+
+    // cámara
+    if (camVuelo) {
+      camVuelo.k = Math.min(1, camVuelo.k + dtWall / camVuelo.dur);
+      const e = camVuelo.k < 0.5 ? 2 * camVuelo.k ** 2 : 1 - (-2 * camVuelo.k + 2) ** 2 / 2;
+      cam.position.lerpVectors(camVuelo.p0, camVuelo.p1, e); ctrls.target.lerpVectors(camVuelo.t0, camVuelo.t1, e);
+      if (camVuelo.k >= 1) camVuelo = null;
+    } else if (!usuarioMovio && ['episodio', 'evaluacion', 'validacion', 'intro', 'diagnostico', 'cambio'].includes(S.fase)) {
+      const ang = 0.16 * Math.sin(tReloj * 0.12), b = CAM_GEN.pos.clone().sub(CAM_GEN.tgt);
+      cam.position.copy(CAM_GEN.tgt).add(b.applyAxisAngle(new THREE.Vector3(0, 1, 0), ang)); ctrls.target.copy(CAM_GEN.tgt);
+    }
+    ctrls.update();
+    r3.render(scene, cam);
+    actualizarHUD(); dibujarSpag(); dibujarScatter(); dibujarRecompensa();
+    requestAnimationFrame(frame);
+  }
+
+  /* ── controles ── */
+  $('play').onclick = () => { pausa = !pausa; $('play').textContent = pausa ? '▶ Seguir' : '❚❚ Pausa'; };
+  $('speed').onclick = () => { vel = VELS[(VELS.indexOf(vel) + 1) % VELS.length]; $('speed').textContent = `Velocidad ${vel}×`; };
+  $('restart').onclick = () => { agents = []; nuevoEstado(); ocultarBanner(); usuarioMovio = false; vistaGeneral(); $('top').innerHTML = ''; };
+  $('video').onclick = () => { document.body.classList.toggle('video'); resize(); };
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+    if (e.key === 'v' || e.key === 'V') $('video').click();
+    if (e.key === 'r' || e.key === 'R') $('restart').click();
+    if (e.key === 'Escape' && document.body.classList.contains('video')) $('video').click();
+  });
+  // ?video=1 abre directo en modo video; ?seed=N fija la semilla
+  const q = new URLSearchParams(location.search);
+  if (q.get('seed')) $('seed').value = q.get('seed');
+  if (q.get('video') === '1') document.body.classList.add('video');
+
+  resize(); nuevoEstado();
+  requestAnimationFrame(t => { tPrev = t; requestAnimationFrame(frame); });
+  window.__entrenamiento = { get S() { return S; }, get agents() { return agents; }, CONFIG, avanzar, banner: () => banner.innerText };
+})();
+</script>
+</body>
+</html>
